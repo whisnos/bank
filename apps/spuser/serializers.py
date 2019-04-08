@@ -42,3 +42,14 @@ class AdminProxyCreateSerializer(serializers.ModelSerializer):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError('两次输入密码不一致')
         return attrs
+
+class AdminUpdateSerializer(serializers.ModelSerializer):
+    auth_code = serializers.CharField(write_only=True, required=False, )
+    password2 = serializers.CharField(write_only=True, required=False, min_length=6,
+                                      style={'input_type': 'password'}, )
+    password = serializers.CharField(write_only=True, required=False, min_length=6,
+                                     style={'input_type': 'password'}, help_text='密码')
+
+    class Meta:
+        model = UserProfile
+        fields = ['auth_code', 'password', 'password2']
