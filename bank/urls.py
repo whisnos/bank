@@ -20,6 +20,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_jwt.views import obtain_jwt_token
 
 route = DefaultRouter()
+
 urlpatterns = [
     url(r'^', include(route.urls)),
     url(r'^user/', include('user.urls')),
