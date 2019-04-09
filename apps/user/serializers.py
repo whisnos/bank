@@ -1,8 +1,9 @@
 import re
 
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
+from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
 
+from proxy.models import RateInfo
 from user.models import UserProfile
 from utils.make_code import make_uuid_code, make_auth_code
 
@@ -45,6 +46,7 @@ class UpdateUserInfoSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ['auth_code', 'password', 'password2']
 
+
 class ProxyUserCreateSerializer(serializers.ModelSerializer):
     username = serializers.CharField(label='用户名', required=True, min_length=5, max_length=20, allow_blank=False,
                                      validators=[
@@ -54,10 +56,12 @@ class ProxyUserCreateSerializer(serializers.ModelSerializer):
                                      style={'input_type': 'password'}, help_text='密码')
     password2 = serializers.CharField(label='确认密码', write_only=True, required=True, allow_blank=False, min_length=6,
                                       style={'input_type': 'password'}, help_text='重复密码')
-    mobile = serializers.CharField(label='手机号', required=False,write_only=True, allow_blank=False, min_length=11, max_length=11,
+    mobile = serializers.CharField(label='手机号', required=False, write_only=True, allow_blank=False, min_length=11,
+                                   max_length=11,
                                    validators=[
                                        UniqueValidator(queryset=UserProfile.objects.all(), message='手机号不能重复')
                                    ], help_text='手机号')
+
     # uid = serializers.CharField(label='uid', read_only=True, validators=[
     #     UniqueValidator(queryset=UserProfile.objects.all(), message='uid不能重复')
     # ], help_text='用户uid')
@@ -96,3 +100,8 @@ class ProxyUserCreateSerializer(serializers.ModelSerializer):
     #         # log.add_logs('3', content, user_up.id)
     #         return user
     #     return proxy_user
+
+
+
+
+

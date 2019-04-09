@@ -9,9 +9,12 @@ from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
 from proxy.filters import ProxyUserFilter
-from proxy.serializers import ProxyUserDetailSerializer
+from proxy.models import RateInfo
+from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSerializer, ProxyRateInfoDetailSerializer, \
+    UpdateRateInfoSerializer
 from user.models import UserProfile
 from user.serializers import UpdateUserInfoSerializer, ProxyUserCreateSerializer
+
 from utils.make_code import make_auth_code, make_md5, make_uuid_code
 from utils.permissions import IsOwnerOrReadOnly
 
@@ -133,6 +136,114 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
                     resp['msg'].append('商户id参数错误')
                     return Response(resp, status=code)
 
+        code = 403
+        resp['msg'] = '没有操作权限'
+        return Response(data=resp, status=code)
+
+
+class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                           mixins.CreateModelMixin,
+                           mixins.UpdateModelMixin):
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    # filter_backends = (DjangoFilterBackend,)
+    # filter_class = ProxyUserFilter
+    def make_userlist(self):
+        user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
+        return user_list
+    def get_queryset(self):
+        user = self.request.user
+        print('user.level', user.level)
+        user_list = self.make_userlist()
+        return RateInfo.objects.filter(user_id__in=user_list).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return UpdateRateInfoSerializer
+        elif self.action == 'create':
+            return ProxyRateInfoCreateSerializer
+        return ProxyRateInfoDetailSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    # def get_object(self):
+    #     return self.request.user
+
+    def create(self, request, *args, **kwargs):
+        resp = {'msg': []}
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        proxy_user = self.request.user
+        userid=request.data.get('user_id','')
+        user_list = self.make_userlist()
+        if proxy_user.level == 2:
+            if userid:
+                if int(userid) in user_list:
+                    serializer = self.get_serializer(data=request.data)
+                    serializer.is_valid(raise_exception=True)
+                    validated_data=serializer.validated_data
+                    user = RateInfo.objects.create(**validated_data)
+                    code = 200
+                    resp['msg'] = '创建成功'
+                    serializer = ProxyRateInfoCreateSerializer(user)
+                    return Response(data=serializer.data, status=code)
+                else:
+                    code = 400
+                    resp['msg'] = '操作对象不存在'
+                    return Response(data=resp, status=code)
+            else:
+                code = 400
+                resp['msg'] = 'user_id无效参数'
+                return Response(data=resp, status=code)
+        else:
+            code = 403
+            resp['msg'] = '没有操作权限'
+            return Response(data=resp, status=code)
+
+    def update(self, request, *args, **kwargs):
+        resp = {'msg': []}
+        proxy_user = self.request.user
+        rate_obj = self.get_object()
+        code = 201
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rate = self.request.data.get('rate', '')
+        is_map = serializer.validated_data.get('is_map', '')
+        mapid = self.request.data.get('mapid', '')
+        print('is_map',is_map)
+        # 代理 修改 商户
+        if proxy_user.level == 2:
+            if rate:
+                rate_obj.rate= rate
+                rate_obj.save()
+            if str(is_map):
+                print(6)
+                if str(is_map) in ['true','True','1']:
+                    print(5)
+                    if is_map == '0':
+                        is_map = False
+                    else:
+                        is_map = True
+                    if mapid:
+                        print(111111)
+                        rate_obj.is_map = is_map
+                        rate_obj.mapid = mapid
+                    else:
+                        code = 400
+                        resp['msg'] = '映射ip必传'
+                        return Response(data=resp, status=code)
+                print('rate_obj1', str(is_map))
+                if str(is_map) in ['false','False']:
+                    print(2222)
+                    is_map = False
+                    rate_obj.is_map = is_map
+            print('rate_obj', is_map)
+            rate_obj.save()
+            print('rate_obj',rate_obj.rate)
+            serializer=ProxyRateInfoDetailSerializer(rate_obj)
+            return Response(data=serializer.data, status=code)
         code = 403
         resp['msg'] = '没有操作权限'
         return Response(data=resp, status=code)

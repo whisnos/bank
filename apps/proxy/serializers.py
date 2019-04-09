@@ -1,5 +1,7 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 
+from proxy.models import RateInfo
 from user.models import UserProfile
 
 
@@ -20,3 +22,41 @@ class UpdateUserInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['auth_code', 'password', 'password2']
+
+
+class ProxyRateInfoCreateSerializer(serializers.ModelSerializer):
+    rate = serializers.DecimalField(max_digits=4, decimal_places=3, required=True)
+    channel_id = serializers.IntegerField(required=True)
+    user_id = serializers.IntegerField(required=True)
+
+    class Meta:
+        model = RateInfo
+        fields = ['rate', 'channel_id', 'user_id']
+        validators = [
+            UniqueTogetherValidator(
+                queryset=RateInfo.objects.all(),
+                fields=('channel_id', 'user_id')
+            )
+        ]
+
+
+class ProxyRateInfoDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RateInfo
+        fields = '__all__'
+
+
+class UpdateRateInfoSerializer(serializers.ModelSerializer):
+    rate = serializers.DecimalField(max_digits=4, decimal_places=3, required=False)
+    is_map = serializers.BooleanField(required=False)
+    mapid = serializers.IntegerField(required=False)
+
+    def validate(self, attrs):
+        print("attrs.get('is_map')", attrs.get('is_map'))
+        if str(attrs.get('is_map')) not in ['True', 'False', 'None']:
+            raise serializers.ValidationError('传值错误')
+        return attrs
+
+    class Meta:
+        model = RateInfo
+        fields = ['rate', 'is_map', 'mapid']

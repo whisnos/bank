@@ -17,10 +17,11 @@ from django.urls import path
 from django.conf.urls import url,include
 
 from rest_framework.routers import DefaultRouter
-from .views import AdminProxyViewset,AdminuserProxyViewset
+from .views import AdminProxyViewset,AdminuserProxyViewset,AdminChannelViewset
 route = DefaultRouter()
 route.register(r'proxy', AdminProxyViewset, base_name="proxy")
 route.register(r'user', AdminuserProxyViewset, base_name="user")
+route.register(r'channel', AdminChannelViewset, base_name="channel")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

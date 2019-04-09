@@ -17,16 +17,9 @@ from django.urls import path
 from django.conf.urls import url,include
 
 from rest_framework.routers import DefaultRouter
-from rest_framework_jwt.views import obtain_jwt_token
-
+from .views import AdminChannelViewset
 route = DefaultRouter()
-
+route.register(r'channel', AdminChannelViewset, base_name="channel")
 urlpatterns = [
     url(r'^', include(route.urls)),
-    url(r'^user/', include('user.urls')),
-    url(r'^proxy/', include('proxy.urls')),
-    url(r'^admin/', include('spuser.urls')),
-    url(r'^public/', include('spuser.url')),
-    url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    url(r'^login/$', obtain_jwt_token),
 ]

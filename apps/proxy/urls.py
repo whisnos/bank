@@ -17,9 +17,11 @@ from django.urls import path
 from django.conf.urls import url,include
 
 from rest_framework.routers import DefaultRouter
-from .views import ProxyUserInfoViewset
+from .views import ProxyUserInfoViewset, ProxyRateInfoViewset
+
 route = DefaultRouter()
 route.register(r'user', ProxyUserInfoViewset, base_name="info")
+route.register(r'rateinfo', ProxyRateInfoViewset, base_name="rateinfo")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]
