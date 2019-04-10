@@ -8,10 +8,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
-from proxy.filters import ProxyUserFilter
-from proxy.models import RateInfo
+from proxy.filters import ProxyUserFilter, OrdersFilter, WithDrawFilter, DeviceFilter, ReceiveBankFilter
+from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo
 from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSerializer, ProxyRateInfoDetailSerializer, \
-    UpdateRateInfoSerializer
+    UpdateRateInfoSerializer, ProxyOrderInfoDetailSerializer, ProxyWithDrawInfoDetailSerializer, \
+    ProxyWithDrawInfoUpdateDetailSerializer, ProxyDeviceInfoDetailSerializer, ProxyDeviceUpdateDetailSerializer, \
+    ProxyWithDrawInfoCreSerializer, ProxyReceiveBankInfoDetailSerializer, ProxyReceiveBankCreDetailSerializer, \
+    ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer
+from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from user.serializers import UpdateUserInfoSerializer, ProxyUserCreateSerializer
 
@@ -59,7 +63,7 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         if proxy_user.level == 2:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            validated_data=serializer.validated_data
+            validated_data = serializer.validated_data
             del validated_data['password2']
             user = UserProfile.objects.create(**validated_data)
             user.set_password(validated_data['password'])
@@ -129,7 +133,7 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
                     if web_url:
                         user.web_url = web_url
                     user.save()
-                    serializer=ProxyUserDetailSerializer(user)
+                    serializer = ProxyUserDetailSerializer(user)
                     return Response(data=serializer.data, status=code)
                 else:
                     code = 400
@@ -143,18 +147,17 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 
 class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                            mixins.CreateModelMixin,
-                           mixins.UpdateModelMixin):
+                           mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
-    # filter_backends = (DjangoFilterBackend,)
-    # filter_class = ProxyUserFilter
+
     def make_userlist(self):
         user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
         return user_list
+
     def get_queryset(self):
         user = self.request.user
-        print('user.level', user.level)
         user_list = self.make_userlist()
         return RateInfo.objects.filter(user_id__in=user_list).order_by('-add_time')  # .order_by('-add_time')
 
@@ -168,22 +171,19 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
     def get_permissions(self):
         return [IsAuthenticated()]
 
-    # def get_object(self):
-    #     return self.request.user
-
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         proxy_user = self.request.user
-        userid=request.data.get('user_id','')
+        userid = request.data.get('user_id', '')
         user_list = self.make_userlist()
         if proxy_user.level == 2:
             if userid:
                 if int(userid) in user_list:
                     serializer = self.get_serializer(data=request.data)
                     serializer.is_valid(raise_exception=True)
-                    validated_data=serializer.validated_data
+                    validated_data = serializer.validated_data
                     user = RateInfo.objects.create(**validated_data)
                     code = 200
                     resp['msg'] = '创建成功'
@@ -212,38 +212,264 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         rate = self.request.data.get('rate', '')
         is_map = serializer.validated_data.get('is_map', '')
         mapid = self.request.data.get('mapid', '')
-        print('is_map',is_map)
         # 代理 修改 商户
         if proxy_user.level == 2:
             if rate:
-                rate_obj.rate= rate
+                rate_obj.rate = rate
                 rate_obj.save()
             if str(is_map):
-                print(6)
-                if str(is_map) in ['true','True','1']:
-                    print(5)
-                    if is_map == '0':
-                        is_map = False
-                    else:
-                        is_map = True
+                if is_map:
                     if mapid:
-                        print(111111)
                         rate_obj.is_map = is_map
                         rate_obj.mapid = mapid
                     else:
                         code = 400
                         resp['msg'] = '映射ip必传'
                         return Response(data=resp, status=code)
-                print('rate_obj1', str(is_map))
-                if str(is_map) in ['false','False']:
-                    print(2222)
-                    is_map = False
+                if is_map == False:
                     rate_obj.is_map = is_map
-            print('rate_obj', is_map)
             rate_obj.save()
-            print('rate_obj',rate_obj.rate)
-            serializer=ProxyRateInfoDetailSerializer(rate_obj)
+            serializer = ProxyRateInfoDetailSerializer(rate_obj)
             return Response(data=serializer.data, status=code)
         code = 403
         resp['msg'] = '没有操作权限'
         return Response(data=resp, status=code)
+
+
+class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = OrdersFilter
+
+    def make_userlist(self):
+        user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
+        return user_list
+
+    def get_queryset(self):
+        user_list = self.make_userlist()
+        return OrderInfo.objects.filter(user_id__in=user_list).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        return ProxyOrderInfoDetailSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+
+class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                           mixins.UpdateModelMixin):
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = WithDrawFilter
+
+    def make_userlist(self):
+        user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
+        return user_list
+
+    def get_queryset(self):
+        user_list = self.make_userlist()
+        return WithDrawInfo.objects.filter(user_id__in=user_list).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return ProxyWithDrawInfoUpdateDetailSerializer
+        return ProxyWithDrawInfoDetailSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def update(self, request, *args, **kwargs):
+        resp = {'msg': []}
+        proxy_user = self.request.user
+        withdraw_obj = self.get_object()
+        code = 201
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        withdraw_status = serializer.validated_data.get('withdraw_status', '')
+        remark = self.request.data.get('remark', '')
+        # 代理 修改 商户
+        if proxy_user.level == 2:
+            if remark:
+                withdraw_obj.remark = remark
+            if str(withdraw_status):
+                if withdraw_status in [0, 1]:
+                    withdraw_obj.withdraw_status = withdraw_status
+                else:
+                    code = 400
+                    resp['msg'] = '修改状态参数错误'
+                    return Response(data=resp, status=code)
+            serializer = ProxyWithDrawInfoDetailSerializer(withdraw_obj)
+            return Response(data=serializer.data, status=code)
+        code = 403
+        resp['msg'] = '没有操作权限'
+        return Response(data=resp, status=code)
+
+
+class ProxyDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                         mixins.UpdateModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin):
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = DeviceFilter
+
+    def make_userlist(self):
+        user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
+        return user_list
+
+    def get_queryset(self):
+        return DeviceInfo.objects.filter(user_id=self.request.user.id).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return ProxyDeviceUpdateDetailSerializer
+        elif self.action == 'create':
+            return ProxyWithDrawInfoCreSerializer
+        return ProxyDeviceInfoDetailSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def create(self, request, *args, **kwargs):
+        resp = {'msg': []}
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        proxy_user = self.request.user
+        if proxy_user.level == 2:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            validated_data = serializer.validated_data
+            del validated_data['password2']
+            device_obj = DeviceInfo.objects.create(**validated_data)
+            code = 200
+            resp['msg'] = '创建成功'
+            serializer = ProxyDeviceInfoDetailSerializer(device_obj)
+            return Response(data=serializer.data, status=code)
+        else:
+            code = 403
+            resp['msg'] = '没有操作权限'
+            return Response(data=resp, status=code)
+
+    def update(self, request, *args, **kwargs):
+        resp = {'msg': []}
+        proxy_user = self.request.user
+        device_obj = self.get_object()
+        code = 201
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        is_active = serializer.validated_data.get('is_active', '')
+        # 代理 修改 商户
+        if proxy_user.level == 2:
+            if str(is_active):
+                device_obj.is_active = is_active
+                device_obj.save()
+            serializer = ProxyDeviceInfoDetailSerializer(device_obj)
+            return Response(data=serializer.data, status=code)
+        code = 403
+        resp['msg'] = '没有操作权限'
+        return Response(data=resp, status=code)
+
+
+class ProxyReceiveBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                              mixins.UpdateModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin):
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = ReceiveBankFilter
+
+    def get_queryset(self):
+        return ReceiveBankInfo.objects.filter(user_id=self.request.user.id).order_by(
+            '-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return ProxyReceiveBankInfoUpdateDetailSerializer
+        elif self.action == 'create':
+            return ProxyReceiveBankCreDetailSerializer
+        elif self.action == 'retrieve':
+            return ProxyReceiveBankInfoRetriDetailSerializer
+        return ProxyReceiveBankInfoDetailSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def update(self, request, *args, **kwargs):
+        resp = {'msg': []}
+        proxy_user = self.request.user
+        receivebank_obj = self.get_object()
+        code = 201
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        deviceid=serializer.validated_data.get('device', '')
+        username=serializer.validated_data.get('username', '')
+        card_number=serializer.validated_data.get('card_number', '')
+        bank_type=serializer.validated_data.get('bank_type', '')
+        bank_mark=serializer.validated_data.get('bank_mark', '')
+        bank_tel=serializer.validated_data.get('bank_tel', '')
+        card_index=serializer.validated_data.get('card_index', '')
+        mobile=serializer.validated_data.get('mobile', '')
+        is_active=serializer.validated_data.get('is_active', '')
+        # 代理 修改 商户
+        if proxy_user.level == 2:
+            print('serializer.validated_data', serializer.validated_data)
+            device_list = [device.id for device in DeviceInfo.objects.filter(user_id=proxy_user.id)]
+            if str(deviceid):
+                if deviceid in device_list:
+                    receivebank_obj.device = deviceid
+                else:
+                    code = 400
+                    resp['msg'] = '对应设备不存在'
+                    return Response(data=resp, status=code)
+            if username:
+                receivebank_obj.username = username
+            if card_number:
+                receivebank_obj.card_number = card_number
+            if bank_type:
+                receivebank_obj.bank_type = bank_type
+            if bank_mark:
+                receivebank_obj.bank_mark = bank_mark
+            if bank_tel:
+                receivebank_obj.bank_tel = bank_tel
+            if card_index:
+                receivebank_obj.card_index = card_index
+            if mobile:
+                receivebank_obj.mobile = mobile
+            if str(is_active):
+                receivebank_obj.is_active = is_active
+            receivebank_obj.save()
+            serializer = ProxyReceiveBankInfoDetailSerializer(receivebank_obj)
+            return Response(data=serializer.data, status=code)
+        code = 403
+        resp['msg'] = '没有操作权限'
+        return Response(data=resp, status=code)
+
+    def create(self, request, *args, **kwargs):
+        resp = {'msg': []}
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        proxy_user = self.request.user
+        if proxy_user.level == 2:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            device_list = [device.id for device in DeviceInfo.objects.filter(user_id=proxy_user.id)]
+            if serializer.validated_data.get('device', '') in device_list:
+                device_obj = DeviceInfo.objects.filter(id=serializer.validated_data.get('device', ''))[0]
+                serializer.validated_data['device'] = device_obj
+                receivebank_obj = serializer.save()
+                code = 200
+                resp['msg'] = '创建成功'
+                serializer = ProxyReceiveBankInfoDetailSerializer(receivebank_obj)
+                return Response(data=serializer.data, status=code)
+            else:
+                code = 400
+                resp['msg'] = '绑定的设备不存在'
+                return Response(data=resp, status=code)
+        else:
+            code = 403
+            resp['msg'] = '没有操作权限'
+            return Response(data=resp, status=code)

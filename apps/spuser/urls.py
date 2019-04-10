@@ -17,11 +17,13 @@ from django.urls import path
 from django.conf.urls import url,include
 
 from rest_framework.routers import DefaultRouter
-from .views import AdminProxyViewset,AdminuserProxyViewset,AdminChannelViewset
+from .views import AdminProxyViewset,AdminuserProxyViewset,AdminChannelViewset,AdminOrderViewset,AdminWithDrawViewset
 route = DefaultRouter()
 route.register(r'proxy', AdminProxyViewset, base_name="proxy")
 route.register(r'user', AdminuserProxyViewset, base_name="user")
 route.register(r'channel', AdminChannelViewset, base_name="channel")
+route.register(r'order', AdminOrderViewset, base_name="order")
+route.register(r'withdraw', AdminWithDrawViewset, base_name="withdraw")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

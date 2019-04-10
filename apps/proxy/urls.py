@@ -17,11 +17,15 @@ from django.urls import path
 from django.conf.urls import url,include
 
 from rest_framework.routers import DefaultRouter
-from .views import ProxyUserInfoViewset, ProxyRateInfoViewset
+from .views import ProxyUserInfoViewset, ProxyRateInfoViewset,ProxyOrderInfoViewset,ProxyWithDrawViewset,ProxyDeviceViewset,ProxyReceiveBankViewset
 
 route = DefaultRouter()
 route.register(r'user', ProxyUserInfoViewset, base_name="info")
 route.register(r'rateinfo', ProxyRateInfoViewset, base_name="rateinfo")
+route.register(r'order', ProxyOrderInfoViewset, base_name="order")
+route.register(r'withdraw', ProxyWithDrawViewset, base_name="withdraw")
+route.register(r'device', ProxyDeviceViewset, base_name="device")
+route.register(r'receivebankinfo', ProxyReceiveBankViewset, base_name="receivebankinfo")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

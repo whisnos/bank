@@ -28,7 +28,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
     # service_rate = serializers.CharField(read_only=True)
     # proxy_name = serializers.SerializerMethodField(label='所属代理', read_only=True, help_text='所属代理')
     # level = serializers.CharField(read_only=True, required=False)
-
+    add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
     class Meta:
         model = UserProfile
         fields = ['id', 'username', 'level', 'uid', 'auth_code', 'money', 'add_time', 'is_active', 'mobile', 'web_url',

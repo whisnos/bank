@@ -137,6 +137,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
 # jwt相关的设置
 JWT_AUTH = {
-    'JWT_EXPIRATION_DELTA': datetime.timedelta(hours=10),
+    'JWT_EXPIRATION_DELTA': datetime.timedelta(hours=100),
     'JWT_RESPONSE_PAYLOAD_HANDLER': 'utils.permissions.jwt_response_payload_handler'
 }

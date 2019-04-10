@@ -9,17 +9,20 @@ from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
 from channel.models import channelInfo
+from proxy.filters import WithDrawFilter
 from proxy.views import UserListPagination
-from spuser.filters import AdminProxyFilter
+from spuser.filters import AdminProxyFilter, AdminOrderFilter
 from spuser.serializers import AdminUserDetailSerializer, AdminProxyCreateSerializer, AdminUpdateSerializer, \
-    AdminUpdateUserSerializer, AdminChannelDetailSerializer, AdminChannelCreateSerializer
+    AdminUpdateUserSerializer, AdminChannelDetailSerializer, AdminChannelCreateSerializer, AdminOrderDetailSerializer, \
+    AdminWithDrawInfoDetailSerializer
+from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from utils.make_code import make_uuid_code, make_auth_code, make_md5
 from utils.permissions import IsOwnerOrReadOnly
 
 
 class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
-                        mixins.CreateModelMixin):
+                        mixins.CreateModelMixin,mixins.DestroyModelMixin,mixins.RetrieveModelMixin):
     permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
@@ -41,8 +44,8 @@ class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
     def get_permissions(self):
         return [IsAuthenticated()]
 
-    def get_object(self):
-        return self.request.user
+    # def get_object(self):
+    #     return self.request.user
 
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
@@ -98,7 +101,7 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         user = self.get_object()
         resp = {'msg': []}
         if admin_user.level == 1:
-            code = 200
+            code = 204
             resp['id'] = user.id
             resp['msg'] = '删除成功'
             self.perform_destroy(user)
@@ -120,9 +123,9 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
             password = self.request.data.get('password', '')
             password2 = self.request.data.get('password2', '')
             auth_code = self.request.data.get('auth_code', '')
-            is_active = self.request.data.get('is_active', '')
             safe_code = self.request.data.get('safe_code', '')
             safe_code2 = self.request.data.get('safe_code2', '')
+            is_active = serializer.validated_data.get('is_active', '')
             if password:
                 if password == password2:
                     user.set_password(password)
@@ -138,11 +141,10 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
             else:
                 code = 400
             if str(is_active):
-                if is_active == 'true':
-                    is_active = True
-                if is_active == 'false':
-                    is_active = False
-                user.is_active = is_active
+                if is_active:
+                    user.is_active = is_active
+                if is_active == False:
+                    user.is_active = is_active
             user.save()
             serializer = AdminUserDetailSerializer(user)
             return Response(data=serializer.data, status=code)
@@ -200,7 +202,7 @@ class AdminChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
         user = self.get_object()
         resp = {'msg': []}
         if admin_user.is_superuser:
-            code = 200
+            code = 204
             resp['id'] = user.id
             resp['msg'] = '删除成功'
             self.perform_destroy(user)
@@ -227,3 +229,46 @@ class AdminChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
             code = 403
             resp['msg'] = '没有操作权限'
             return Response(data=resp, status=code)
+
+class AdminOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = AdminOrderFilter
+
+    def get_queryset(self):
+        user = self.request.user
+        print('user.level', user.level)
+        if user.is_superuser:
+            return OrderInfo.objects.all().order_by('-id')  # .order_by('-add_time')
+        return []
+
+    def get_serializer_class(self):
+        # if self.action == 'create':
+        #     return AdminChannelCreateSerializer
+        return AdminOrderDetailSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+class AdminWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = WithDrawFilter
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return WithDrawInfo.objects.all().order_by('-id')  # .order_by('-add_time')
+        return []
+
+    def get_serializer_class(self):
+        return AdminWithDrawInfoDetailSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
