@@ -4,6 +4,7 @@ from django.db import models
 
 # Create your models here.
 from channel.models import channelInfo
+from proxy.models import DeviceInfo
 from user.models import UserProfile
 
 
@@ -27,8 +28,9 @@ class OrderInfo(models.Model):
     goods_name = models.CharField(max_length=100, null=True, blank=True, verbose_name='货物名称')
     channel = models.ForeignKey(channelInfo, verbose_name='通道', on_delete=models.CASCADE)
     user = models.ForeignKey(UserProfile, verbose_name='用户', on_delete=models.CASCADE)
+    proxy = models.IntegerField(null=True, blank=True, verbose_name='代理')
     pay_url = models.CharField(max_length=300, null=True, blank=True, verbose_name='支付链接')
-
+    device = models.ForeignKey(DeviceInfo,on_delete=models.CASCADE, null=True, blank=True,verbose_name='设备')
     def __str__(self):
         return str(self.order_no)
 

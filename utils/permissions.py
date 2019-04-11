@@ -1,5 +1,6 @@
 from rest_framework import permissions
 
+
 # from user.models import OperateLog
 
 
@@ -20,12 +21,12 @@ def jwt_response_payload_handler(token, user=None, request=None):
     """为返回的结果添加用户相关信息"""
     if not user.level:
         user.level = None
-    if request.META.get('HTTP_X_FORWARDED_FOR',''):
+    if request.META.get('HTTP_X_FORWARDED_FOR', ''):
         print('HTTP_X_FORWARDED_FOR')
-        ip = request.META.get('HTTP_X_FORWARDED_FOR','')
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', '')
     else:
         print('REMOTE_ADDR')
-        ip = request.META.get('REMOTE_ADDR','')
+        ip = request.META.get('REMOTE_ADDR', '')
     # # 引入日志
     # log = MakeLogs()
     # content = '用户：' + str(user.username) + ' 登录ip为：' + str(ip)
@@ -45,3 +46,26 @@ def jwt_response_payload_handler(token, user=None, request=None):
 #         log_obj.user_id = user_id
 #         log_obj.save()
 #         return True
+class IsProxyOnly(permissions.BasePermission):
+    """
+    Object-level permission to only allow owners of an object to edit it.
+    Assumes the model instance has an `owner` attribute.
+    """
+
+    def has_permission(self, request, view):
+        if request.user.level == 2:
+            return True
+        else:
+            return False
+
+class IsUserOnly(permissions.BasePermission):
+    """
+    Object-level permission to only allow owners of an object to edit it.
+    Assumes the model instance has an `owner` attribute.
+    """
+
+    def has_permission(self, request, view):
+        if request.user.level == 3:
+            return True
+        else:
+            return False

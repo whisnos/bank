@@ -17,9 +17,11 @@ from django.urls import path
 from django.conf.urls import url,include
 
 from rest_framework.routers import DefaultRouter
-from .views import AdminChannelViewset
+from .views import AdminChannelViewset, AdminNoticeViewset
+
 route = DefaultRouter()
 route.register(r'channel', AdminChannelViewset, base_name="channel")
+route.register(r'notice', AdminNoticeViewset, base_name="notice")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

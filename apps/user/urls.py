@@ -17,9 +17,12 @@ from django.urls import path
 from django.conf.urls import url,include
 
 from rest_framework.routers import DefaultRouter
-from .views import UserInfoViewset
+from .views import UserInfoViewset,UserOrderViewset,UserWithDrawViewset,UserWithDrawBankViewset
 route = DefaultRouter()
 route.register(r'info', UserInfoViewset, base_name="info")
+route.register(r'order', UserOrderViewset, base_name="order")
+route.register(r'withdraw', UserWithDrawViewset, base_name="withdraw")
+route.register(r'withdrawbank', UserWithDrawBankViewset, base_name="withdrawbank")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

@@ -4,6 +4,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
 
 from proxy.models import RateInfo
+from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
 from user.models import UserProfile
 from utils.make_code import make_uuid_code, make_auth_code
 
@@ -29,6 +30,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
     # proxy_name = serializers.SerializerMethodField(label='所属代理', read_only=True, help_text='所属代理')
     # level = serializers.CharField(read_only=True, required=False)
     add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+
     class Meta:
         model = UserProfile
         fields = ['id', 'username', 'level', 'uid', 'auth_code', 'money', 'add_time', 'is_active', 'mobile', 'web_url',
@@ -102,6 +104,89 @@ class ProxyUserCreateSerializer(serializers.ModelSerializer):
     #     return proxy_user
 
 
+class UserOrderListSerializer(serializers.ModelSerializer):
+    pay_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M')
+    add_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M')
+    # username = serializers.SerializerMethodField(read_only=True)
+    # user_id = serializers.SerializerMethodField(read_only=True)
+    total_amount = serializers.FloatField(read_only=True)
+    account_num = serializers.CharField(read_only=True)
+
+    # def get_username(self, obj):
+    #     user_queryset = UserProfile.objects.filter(id=obj.user_id)
+    #     if user_queryset:
+    #         return user_queryset[0].username
+    #     return '暂无匹配'
+
+    # def get_user_id(self, obj):
+    #     return str(obj.user_id)
+
+    class Meta:
+        model = OrderInfo
+        # fields = ['id', 'user_id', 'username', 'pay_status', 'total_amount', 'order_no', 'pay_time', 'add_time',
+        #           'order_id', 'account_num']
+        fields = '__all__'
 
 
+class UserWithDrawListSerializer(serializers.ModelSerializer):
+    add_time = serializers.DateTimeField(read_only=True, format="%Y-%m-%d %H:%M")
+    proxy_name = serializers.SerializerMethodField()
 
+    def get_proxy_name(self, instance):
+        userid = instance.user_id
+        user_queryset = UserProfile.objects.filter(id=userid)
+        if user_queryset:
+            proxy_obj = UserProfile.objects.filter(id=user_queryset[0].proxy_id)[0]
+            return proxy_obj.username
+        return '加载中'
+
+    class Meta:
+        model = WithDrawInfo
+        fields = '__all__'
+
+
+class UserWithDrawCreateSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    add_time = serializers.DateTimeField(read_only=True, format="%Y-%m-%d %H:%M")
+    receive_time = serializers.DateTimeField(read_only=True, format="%Y-%m-%d %H:%M")
+    withdraw_status = serializers.IntegerField(read_only=True)
+    withdraw_no = serializers.CharField(read_only=True)
+    real_money = serializers.FloatField(read_only=True)
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        user_money = user.total_money
+        if not re.match(
+                r'(^[1-9]([0-9]{1,4})?(\.[0-9]{1,2})?$)|(^(0){1}$)|(^[0-9]\.[0-9]([0-9])?$)',
+                str(attrs['withdraw_money'])):
+            raise serializers.ValidationError('金额输入异常')
+        if attrs['withdraw_money'] > user_money or attrs['withdraw_money'] == 0:
+            raise serializers.ValidationError('金额输入异常')
+
+        return attrs
+
+    class Meta:
+        model = WithDrawInfo
+        fields = '__all__'
+
+
+class UserWithDrawBankListSerializer(serializers.ModelSerializer):
+    add_time = serializers.DateTimeField(read_only=True, format="%Y-%m-%d %H:%M")
+
+    class Meta:
+        model = WithDrawBankInfo
+        fields = '__all__'
+
+
+class UserWithDrawBankCreateSerializer(serializers.ModelSerializer):
+    add_time = serializers.DateTimeField(read_only=True, format="%Y-%m-%d %H:%M")
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    username = serializers.CharField(required=True)
+    card_number = serializers.CharField(required=True)
+    open_bank = serializers.CharField(required=False)
+    bank_name = serializers.CharField(required=True)
+    mobile = serializers.CharField(required=True)
+
+    class Meta:
+        model = WithDrawBankInfo
+        fields = '__all__'

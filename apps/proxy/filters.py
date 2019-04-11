@@ -1,7 +1,7 @@
 from django_filters import rest_framework as filters
 
 from proxy.models import DeviceInfo, ReceiveBankInfo
-from trade.models import OrderInfo, WithDrawInfo
+from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
 from user.models import UserProfile
 
 
@@ -24,10 +24,10 @@ class OrdersFilter(filters.FilterSet):
     start_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='gte')
     end_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='lte')
     userid = filters.NumberFilter(field_name='user_id', help_text="根据用户ID")
-
+    deviceid =filters.NumberFilter(field_name='device_id', help_text="根据用户ID")
     class Meta:
         model = OrderInfo
-        fields = ['order_no', 'order_id', 'start_time', 'end_time', 'userid']
+        fields = ['order_no', 'order_id', 'start_time', 'end_time', 'userid','deviceid']
 
 
 # class DeviceFilter(filters.FilterSet):
@@ -38,7 +38,7 @@ class OrdersFilter(filters.FilterSet):
 #         fields = ['username']
 
 class WithDrawFilter(filters.FilterSet):
-    withdraw_status = filters.CharFilter(field_name='withdraw_status', lookup_expr='icontains')
+    card_number = filters.CharFilter(field_name='withdraw_status', lookup_expr='icontains')
     withdraw_no = filters.CharFilter(field_name="withdraw_no", lookup_expr='icontains', help_text="订单名称模糊查询")
     start_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='gte')
     end_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='lte')
@@ -64,3 +64,9 @@ class ReceiveBankFilter(filters.FilterSet):
         model = ReceiveBankInfo
         fields = ['card_number', 'bank_type']
 
+class WithDrawBankFilter(filters.FilterSet):
+    card_number = filters.CharFilter(field_name='card_number', lookup_expr='icontains')
+
+    class Meta:
+        model = WithDrawBankInfo
+        fields = ['card_number']

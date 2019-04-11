@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import models
 
 
@@ -9,7 +11,7 @@ class channelInfo(models.Model):
     # }
     # channel_type = models.IntegerField(choices=TYPE_CHOICE, verbose_name='通道类型')
     channel_name = models.CharField(max_length=32, verbose_name='通道名称')
-
+    add_time = models.DateTimeField(default=datetime.now, verbose_name='创建时间')
     class Meta:
         verbose_name = '通道管理'
         verbose_name_plural = verbose_name

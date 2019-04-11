@@ -4,6 +4,7 @@ from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, viewsets
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
@@ -12,9 +13,10 @@ from channel.models import channelInfo
 from proxy.filters import WithDrawFilter
 from proxy.views import UserListPagination
 from spuser.filters import AdminProxyFilter, AdminOrderFilter
+from spuser.models import NoticeInfo
 from spuser.serializers import AdminUserDetailSerializer, AdminProxyCreateSerializer, AdminUpdateSerializer, \
     AdminUpdateUserSerializer, AdminChannelDetailSerializer, AdminChannelCreateSerializer, AdminOrderDetailSerializer, \
-    AdminWithDrawInfoDetailSerializer
+    AdminWithDrawInfoDetailSerializer, AdminNoticeInfoDetailSerializer, AdminProxyUpdateSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from utils.make_code import make_uuid_code, make_auth_code, make_md5
@@ -22,8 +24,9 @@ from utils.permissions import IsOwnerOrReadOnly
 
 
 class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
-                        mixins.CreateModelMixin,mixins.DestroyModelMixin,mixins.RetrieveModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+                        mixins.CreateModelMixin, mixins.DestroyModelMixin, mixins.RetrieveModelMixin,
+                        mixins.UpdateModelMixin):
+    permission_classes = [IsAdminUser]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -31,21 +34,68 @@ class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
 
     def get_queryset(self):
         user = self.request.user
-        print('user.level', user.level)
-        if user.is_superuser:
-            return UserProfile.objects.filter(level=2).order_by('-add_time')  # .order_by('-add_time')
-        return []
+        # if user.is_superuser:
+        return UserProfile.objects.filter(level=2).order_by('-add_time')  # .order_by('-add_time')
+        # return UserProfile.objects.filter(id=user.id).order_by('-add_time')
 
     def get_serializer_class(self):
         if self.action == 'create':
             return AdminProxyCreateSerializer
+        elif self.action == 'update':
+            return AdminProxyUpdateSerializer
         return AdminUserDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     # def get_object(self):
     #     return self.request.user
+    def destroy(self, request, *args, **kwargs):
+        admin_user = self.request.user
+        user = self.get_object()
+        resp = {'msg': []}
+        if admin_user.is_superuser:
+            code = 204
+            resp['id'] = user.id
+            resp['msg'] = '删除成功'
+            self.perform_destroy(user)
+            return Response(data=resp, status=code)
+        else:
+            code = 403
+            resp['msg'] = '没有操作权限'
+            return Response(data=resp, status=code)
+
+    def update(self, request, *args, **kwargs):
+        admin_user = self.request.user
+        user = self.get_object()
+        resp = {'msg': []}
+        code = 200
+        if admin_user.is_superuser:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            password = self.request.data.get('password', '')
+            password2 = self.request.data.get('password2', '')
+            # auth_code = self.request.data.get('auth_code', '')
+            safe_code = self.request.data.get('safe_code', '')
+            safe_code2 = self.request.data.get('safe_code2', '')
+            # is_active = serializer.validated_data.get('is_active', '')
+            if password:
+                if password == password2:
+                    user.set_password(password)
+                elif password != password2:
+                    code = 400
+            if safe_code == safe_code2:
+                if safe_code:
+                    print('admin修改 代理 操作密码中..........')
+                    safe_code = make_md5(safe_code)
+                    user.safe_code = safe_code
+            else:
+                code = 400
+            user.save()
+            serializer = AdminUserDetailSerializer(user)
+            return Response(data=serializer.data, status=code)
+        else:
+            code = 403
+            resp['msg'] = '没有操作权限'
+            return Response(data=resp, status=code)
 
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
@@ -73,7 +123,7 @@ class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
 
 class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
                             mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = [IsAdminUser]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -82,10 +132,9 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
     def get_queryset(self):
         user = self.request.user
         print('user.level', user.level)
-        if user.is_superuser:
-            return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
-        return []
-
+        # if user.is_superuser:
+        return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
+        # return UserProfile.objects.filter(id=user.id).order_by('-add_time')  # .order_by('-add_time')
     def get_serializer_class(self):
         if self.action == 'create':
             return AdminProxyCreateSerializer
@@ -93,8 +142,6 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
             return AdminUpdateUserSerializer
         return AdminUserDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     def destroy(self, request, *args, **kwargs):
         admin_user = self.request.user
@@ -156,7 +203,7 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
 
 class AdminChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.CreateModelMixin,
                           mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = [IsAdminUser]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
@@ -175,8 +222,6 @@ class AdminChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
             return AdminChannelCreateSerializer
         return AdminChannelDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     def update(self, request, *args, **kwargs):
         resp = {'msg': []}
@@ -230,45 +275,121 @@ class AdminChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
             resp['msg'] = '没有操作权限'
             return Response(data=resp, status=code)
 
-class AdminOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+
+class AdminOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                        mixins.DestroyModelMixin):
+    permission_classes = [IsAdminUser]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
-
+    # queryset = OrderInfo.objects.all().order_by('-add_time')
     filter_backends = (DjangoFilterBackend,)
     filter_class = AdminOrderFilter
-
+    def make_userlist(self):
+        user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
+        return user_list
     def get_queryset(self):
         user = self.request.user
         print('user.level', user.level)
-        if user.is_superuser:
-            return OrderInfo.objects.all().order_by('-id')  # .order_by('-add_time')
-        return []
+        # if user.is_superuser:
+        return OrderInfo.objects.all().order_by('-add_time')  # .order_by('-add_time')
+        # user_list = self.make_userlist()
+        # return OrderInfo.objects.filter(user_id__in=user_list).order_by('-add_time')
 
     def get_serializer_class(self):
         # if self.action == 'create':
         #     return AdminChannelCreateSerializer
         return AdminOrderDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
-class AdminWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+class AdminWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                           mixins.DestroyModelMixin):
+    permission_classes = [IsAdminUser]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
     filter_backends = (DjangoFilterBackend,)
     filter_class = WithDrawFilter
-
+    def make_userlist(self):
+        user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
+        return user_list
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser:
-            return WithDrawInfo.objects.all().order_by('-id')  # .order_by('-add_time')
-        return []
+        # if user.is_superuser:
+        return WithDrawInfo.objects.all().order_by('-id')  # .order_by('-add_time')
+        # user_list = self.make_userlist()
+        # return WithDrawInfo.objects.filter(user_id__in=user_list).order_by('-add_time')
 
     def get_serializer_class(self):
         return AdminWithDrawInfoDetailSerializer
 
+
+
+class AdminNoticeViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                         mixins.DestroyModelMixin, mixins.UpdateModelMixin, mixins.CreateModelMixin):
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    # filter_backends = (DjangoFilterBackend,)
+    # filter_class = WithDrawFilter
+    filter_backends = (SearchFilter,)
+    search_fields = ('title', "content")
+
+    def get_queryset(self):
+        user = self.request.user
+        # if user.is_superuser:
+        return NoticeInfo.objects.all().order_by('-add_time')  # .order_by('-add_time')
+        # return []
+
+    def get_serializer_class(self):
+        return AdminNoticeInfoDetailSerializer
+
     def get_permissions(self):
         return [IsAuthenticated()]
+
+    def create(self, request, *args, **kwargs):
+        if self.request.user.is_superuser:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            code = 201
+            self.perform_create(serializer)
+            response_data = {'msg': '创建成功'}
+            headers = self.get_success_headers(response_data)
+            return Response(response_data, status=code, headers=headers)
+
+        code = 403
+        response_data = {'msg': '没有权限'}
+        headers = self.get_success_headers(response_data)
+        return Response(response_data, status=code, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        if self.request.user.is_superuser:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            code = 201
+            response_data = {'msg': '修改成功'}
+            headers = self.get_success_headers(response_data)
+            return Response(response_data, status=code, headers=headers)
+
+        code = 403
+        response_data = {'msg': '没有权限'}
+        headers = self.get_success_headers(response_data)
+        return Response(response_data, status=code, headers=headers)
+
+    def destroy(self, request, *args, **kwargs):
+        admin_user = self.request.user
+        user = self.get_object()
+        resp = {'msg': []}
+        if admin_user.is_superuser:
+            code = 204
+            resp['id'] = user.id
+            resp['msg'] = '删除成功'
+            self.perform_destroy(user)
+            return Response(data=resp, status=code)
+        else:
+            code = 403
+            resp['msg'] = '没有操作权限'
+            return Response(data=resp, status=code)

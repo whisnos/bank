@@ -15,12 +15,13 @@ from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSeri
     ProxyWithDrawInfoUpdateDetailSerializer, ProxyDeviceInfoDetailSerializer, ProxyDeviceUpdateDetailSerializer, \
     ProxyWithDrawInfoCreSerializer, ProxyReceiveBankInfoDetailSerializer, ProxyReceiveBankCreDetailSerializer, \
     ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer
+from spuser.serializers import AdminOrderDetailSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from user.serializers import UpdateUserInfoSerializer, ProxyUserCreateSerializer
 
 from utils.make_code import make_auth_code, make_md5, make_uuid_code
-from utils.permissions import IsOwnerOrReadOnly
+from utils.permissions import IsOwnerOrReadOnly, IsProxyOnly
 
 
 class UserListPagination(PageNumberPagination):
@@ -33,7 +34,7 @@ class UserListPagination(PageNumberPagination):
 class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                            mixins.CreateModelMixin,
                            mixins.UpdateModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -51,8 +52,6 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
             return ProxyUserCreateSerializer
         return ProxyUserDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     def get_object(self):
         return self.request.user
@@ -148,7 +147,7 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                            mixins.CreateModelMixin,
                            mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
@@ -168,8 +167,6 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
             return ProxyRateInfoCreateSerializer
         return ProxyRateInfoDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
@@ -237,7 +234,7 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 
 
 class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -252,15 +249,14 @@ class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
         return OrderInfo.objects.filter(user_id__in=user_list).order_by('-add_time')  # .order_by('-add_time')
 
     def get_serializer_class(self):
-        return ProxyOrderInfoDetailSerializer
+        # return ProxyOrderInfoDetailSerializer
+        return AdminOrderDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
 
 class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                            mixins.UpdateModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -279,8 +275,6 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
             return ProxyWithDrawInfoUpdateDetailSerializer
         return ProxyWithDrawInfoDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     def update(self, request, *args, **kwargs):
         resp = {'msg': []}
@@ -311,7 +305,7 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 
 class ProxyDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                          mixins.UpdateModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -331,8 +325,6 @@ class ProxyDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.
             return ProxyWithDrawInfoCreSerializer
         return ProxyDeviceInfoDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
@@ -376,7 +368,7 @@ class ProxyDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.
 
 class ProxyReceiveBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                               mixins.UpdateModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -395,8 +387,6 @@ class ProxyReceiveBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mi
             return ProxyReceiveBankInfoRetriDetailSerializer
         return ProxyReceiveBankInfoDetailSerializer
 
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     def update(self, request, *args, **kwargs):
         resp = {'msg': []}
