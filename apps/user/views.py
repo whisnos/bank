@@ -52,14 +52,12 @@ class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
         original_safe_code = self.request.data.get('original_safe_code')
         safe_code = self.request.data.get('safe_code')
         safe_code2 = self.request.data.get('safe_code2')
-        print('serializer.validated_data',serializer.validated_data)
         # tuoxie001 修改自己
         if password:
             if password == password2:
                 user.set_password(password)
             elif password != password2:
                 code = 400
-        print('auth_code', auth_code)
         if auth_code:
 
             user.auth_code = make_auth_code()
