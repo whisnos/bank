@@ -43,10 +43,15 @@ class UpdateUserInfoSerializer(serializers.ModelSerializer):
                                       style={'input_type': 'password'}, )
     password = serializers.CharField(write_only=True, required=False, min_length=6,
                                      style={'input_type': 'password'}, help_text='密码')
+    web_url = serializers.CharField(write_only=True, required=False, help_text='web_url')
+    add_money = serializers.DecimalField(max_digits=7, decimal_places=2, help_text='加款', write_only=True,
+                                         required=False)
+    desc_money = serializers.DecimalField(max_digits=7, decimal_places=2, help_text='扣款', write_only=True,
+                                          required=False)
 
     class Meta:
         model = UserProfile
-        fields = ['auth_code', 'password', 'password2']
+        fields = ['auth_code', 'password', 'password2', 'web_url', 'add_money', 'desc_money']
 
 
 class ProxyUserCreateSerializer(serializers.ModelSerializer):
@@ -131,7 +136,12 @@ class UserOrderListSerializer(serializers.ModelSerializer):
 class UserWithDrawListSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format="%Y-%m-%d %H:%M")
     proxy_name = serializers.SerializerMethodField()
-
+    bank = serializers.SerializerMethodField(label='绑定的用户', required=False)
+    def get_bank(self, obj):
+        print(obj)
+        userqueryset = WithDrawBankInfo.objects.filter(id=obj.bank_id)
+        obj = UserWithDrawBankListSerializer(userqueryset[0])
+        return obj.data
     def get_proxy_name(self, instance):
         userid = instance.user_id
         user_queryset = UserProfile.objects.filter(id=userid)
@@ -152,7 +162,7 @@ class UserWithDrawCreateSerializer(serializers.ModelSerializer):
     withdraw_status = serializers.IntegerField(read_only=True)
     withdraw_no = serializers.CharField(read_only=True)
     real_money = serializers.FloatField(read_only=True)
-
+    bank = serializers.IntegerField(required=True,help_text='银行卡id')
     def validate(self, attrs):
         user = self.context['request'].user
         user_money = user.total_money

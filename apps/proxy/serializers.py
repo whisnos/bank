@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
+from channel.models import channelInfo
 from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
@@ -31,7 +32,6 @@ class ProxyRateInfoCreateSerializer(serializers.ModelSerializer):
     rate = serializers.DecimalField(max_digits=4, decimal_places=3, required=True)
     channel_id = serializers.IntegerField(required=True)
     user_id = serializers.IntegerField(required=True)
-
     class Meta:
         model = RateInfo
         fields = ['rate', 'channel_id', 'user_id']
@@ -65,12 +65,36 @@ class UpdateRateInfoSerializer(serializers.ModelSerializer):
         fields = ['rate', 'is_map', 'mapid']
 
 
-class ProxyOrderInfoDetailSerializer(serializers.ModelSerializer):
-    add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
-
-    class Meta:
-        model = OrderInfo
-        fields = '__all__'
+# class ProxyOrderInfoDetailSerializer(serializers.ModelSerializer):
+#     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+#     channel = serializers.SerializerMethodField()
+#     device = serializers.SerializerMethodField()
+#     username = serializers.SerializerMethodField()
+#     rate = serializers.SerializerMethodField()
+#
+#     def get_rate(self, instance):
+#         channelid = instance.channel_id
+#         userid = instance.user_id
+#         rate_queryset = RateInfo.objects.filter(channel_id=channelid, user_id=userid)
+#         if rate_queryset:
+#             return rate_queryset[0].rate
+#         return '加载中'
+#
+#     def get_username(self, instance):
+#         user_obj = UserProfile.objects.filter(id=instance.proxy)[0]
+#         return user_obj.username
+#
+#     def get_device(self, instance):
+#         device_obj = DeviceInfo.objects.filter(id=instance.device_id)[0]
+#         return device_obj.device_name
+#
+#     def get_channel(self, instance):
+#         channel_obj = channelInfo.objects.filter(id=instance.channel_id)[0]
+#         return channel_obj.channel_name
+#
+#     class Meta:
+#         model = OrderInfo
+#         fields = '__all__'
 
 
 class ProxyWithDrawInfoDetailSerializer(serializers.ModelSerializer):

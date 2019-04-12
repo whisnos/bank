@@ -1,5 +1,6 @@
 from django_filters import rest_framework as filters
 
+from channel.models import channelInfo
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 
@@ -10,6 +11,14 @@ class AdminProxyFilter(filters.FilterSet):
     class Meta:
         model = UserProfile
         fields = ['username']
+
+
+class AdminChannelFilter(filters.FilterSet):
+    name = filters.CharFilter(field_name="channel_name", lookup_expr='icontains', help_text="名称模糊查询")
+
+    class Meta:
+        model = channelInfo
+        fields = ['name']
 
 
 class AdminOrderFilter(filters.FilterSet):
@@ -23,6 +32,8 @@ class AdminOrderFilter(filters.FilterSet):
     order_id = filters.CharFilter(field_name="order_id", lookup_expr='icontains', help_text="订单名称模糊查询")
     min_price = filters.NumberFilter(field_name='real_money', lookup_expr='gte')
     max_price = filters.NumberFilter(field_name="real_money", lookup_expr='lte', help_text="最大金额")
+
     class Meta:
         model = OrderInfo
-        fields = ['order_no', 'order_id', 'start_time', 'end_time', 'userid', 'proxyid','channelid','order_id','min_price','max_price']
+        fields = ['order_no', 'order_id', 'start_time', 'end_time', 'userid', 'proxyid', 'channelid', 'order_id',
+                  'min_price', 'max_price']

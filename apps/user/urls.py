@@ -17,12 +17,13 @@ from django.urls import path
 from django.conf.urls import url,include
 
 from rest_framework.routers import DefaultRouter
-from .views import UserInfoViewset,UserOrderViewset,UserWithDrawViewset,UserWithDrawBankViewset
+from .views import UserInfoViewset,UserOrderViewset,UserWithDrawViewset,UserWithDrawBankViewset,UserCountViewset
 route = DefaultRouter()
 route.register(r'info', UserInfoViewset, base_name="info")
 route.register(r'order', UserOrderViewset, base_name="order")
 route.register(r'withdraw', UserWithDrawViewset, base_name="withdraw")
 route.register(r'withdrawbank', UserWithDrawBankViewset, base_name="withdrawbank")
+route.register(r'count', UserCountViewset, base_name="count")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

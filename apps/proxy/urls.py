@@ -14,18 +14,20 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
-from django.conf.urls import url,include
+from django.conf.urls import url, include
 
 from rest_framework.routers import DefaultRouter
-from .views import ProxyUserInfoViewset, ProxyRateInfoViewset,ProxyOrderInfoViewset,ProxyWithDrawViewset,ProxyDeviceViewset,ProxyReceiveBankViewset
+from .views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
+    ProxyDeviceViewset, ProxyReceiveBankViewset,ProxyCountViewset
 
 route = DefaultRouter()
-route.register(r'user', ProxyUserInfoViewset, base_name="info")
-route.register(r'rateinfo', ProxyRateInfoViewset, base_name="rateinfo")
-route.register(r'order', ProxyOrderInfoViewset, base_name="order")
-route.register(r'withdraw', ProxyWithDrawViewset, base_name="withdraw")
-route.register(r'device', ProxyDeviceViewset, base_name="device")
-route.register(r'receivebankinfo', ProxyReceiveBankViewset, base_name="receivebankinfo")
+route.register(r'user', ProxyUserInfoViewset, base_name="proxy/info")
+route.register(r'rateinfo', ProxyRateInfoViewset, base_name="proxy/rateinfo")
+route.register(r'order', ProxyOrderInfoViewset, base_name="proxy/order")
+route.register(r'withdraw', ProxyWithDrawViewset, base_name="proxy/withdraw")
+route.register(r'device', ProxyDeviceViewset, base_name="proxy/device")
+route.register(r'receivebankinfo', ProxyReceiveBankViewset, base_name="proxy/receivebankinfo")
+route.register(r'count', ProxyCountViewset, base_name="proxy/count")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

@@ -8,14 +8,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
-from proxy.filters import ProxyUserFilter, OrdersFilter, WithDrawFilter, DeviceFilter, ReceiveBankFilter
+from channel.models import channelInfo
+from proxy.filters import ProxyUserFilter, WithDrawFilter, DeviceFilter, ReceiveBankFilter
 from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo
 from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSerializer, ProxyRateInfoDetailSerializer, \
-    UpdateRateInfoSerializer, ProxyOrderInfoDetailSerializer, ProxyWithDrawInfoDetailSerializer, \
+    UpdateRateInfoSerializer, ProxyWithDrawInfoDetailSerializer, \
     ProxyWithDrawInfoUpdateDetailSerializer, ProxyDeviceInfoDetailSerializer, ProxyDeviceUpdateDetailSerializer, \
     ProxyWithDrawInfoCreSerializer, ProxyReceiveBankInfoDetailSerializer, ProxyReceiveBankCreDetailSerializer, \
     ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer
-from spuser.serializers import AdminOrderDetailSerializer
+from spuser.filters import AdminOrderFilter, AdminProxyFilter
+from spuser.serializers import AdminOrderDetailSerializer, AdminCountDetailSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from user.serializers import UpdateUserInfoSerializer, ProxyUserCreateSerializer
@@ -34,7 +36,7 @@ class UserListPagination(PageNumberPagination):
 class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                            mixins.CreateModelMixin,
                            mixins.UpdateModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
+    permission_classes = (IsAuthenticated,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -42,7 +44,6 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 
     def get_queryset(self):
         user = self.request.user
-        print('user.level', user.level)
         return UserProfile.objects.filter(proxy_id=user.id).order_by('-add_time')  # .order_by('-add_time')
 
     def get_serializer_class(self):
@@ -52,102 +53,76 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
             return ProxyUserCreateSerializer
         return ProxyUserDetailSerializer
 
-
-    def get_object(self):
-        return self.request.user
-
     def create(self, request, *args, **kwargs):
-        resp = {'msg': []}
         proxy_user = self.request.user
-        if proxy_user.level == 2:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            validated_data = serializer.validated_data
-            del validated_data['password2']
-            user = UserProfile.objects.create(**validated_data)
-            user.set_password(validated_data['password'])
-            user.uid = make_uuid_code()
-            user.auth_code = make_auth_code()
-            user.is_active = False
-            user.proxy_id = proxy_user.id
-            user.save()
-            code = 200
-            resp['msg'] = '创建成功'
-            serializer = ProxyUserDetailSerializer(user)
-            return Response(data=serializer.data, status=code)
-        else:
-            code = 403
-            resp['msg'] = '没有操作权限'
-            return Response(data=resp, status=code)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+        del validated_data['password2']
+        user = UserProfile.objects.create(**validated_data)
+        user.set_password(validated_data['password'])
+        user.uid = make_uuid_code()
+        user.auth_code = make_auth_code()
+        user.is_active = False
+        user.proxy_id = proxy_user.id
+        user.save()
+        code = 200
+        serializer = ProxyUserDetailSerializer(user)
+        return Response(data=serializer.data, status=code)
 
     def update(self, request, *args, **kwargs):
-        resp = {'msg': []}
         proxy_user = self.request.user
         code = 201
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        add_money = self.request.data.get('add_money')
-        desc_money = self.request.data.get('desc_money')
-        get_proxyid = self.request.data.get('id')
+        auth_code = self.request.data.get('auth_code')
+        add_money=serializer.validated_data.get('add_money')
+        desc_money=serializer.validated_data.get('desc_money')
         web_url = self.request.data.get('web_url')
+        user = self.get_object()
         # 代理 修改 商户
-        if proxy_user.level == 2:
-            if get_proxyid:
-                id_list = [user_obj.id for user_obj in UserProfile.objects.filter(proxy_id=proxy_user.id)]
-                if int(get_proxyid) in id_list:
-                    user = UserProfile.objects.filter(id=get_proxyid)[0]
-                    if add_money:
-                        user.total_money = '%.2f' % (Decimal(user.total_money) + Decimal(add_money))
-                        user.money = '%.2f' % (Decimal(user.money) + Decimal(add_money))
-                        resp['msg'].append('加款成功')
-                        # # 加日志
-                        # if not ramark_info:
-                        #     ramark_info = '无备注！'
-                        # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
-                        #     user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(ramark_info)
-                        # log.add_logs('3', content, self.request.user.id)
-                        # 更新代理余额
-                        proxy_user.total_money = '%.2f' % (Decimal(proxy_user.total_money) + Decimal(add_money))
-                        proxy_user.money = '%.2f' % (Decimal(proxy_user.money) + Decimal(add_money))
-                        proxy_user.save()
-                    if desc_money:
-                        if Decimal(desc_money) <= Decimal(user.total_money) and Decimal(
-                                proxy_user.total_money) >= Decimal(desc_money):
-                            user.total_money = '%.2f' % (Decimal(user.total_money) - Decimal(desc_money))
-                            user.money = '%.2f' % (Decimal(user.money) - Decimal(desc_money))
-                            resp['msg'].append('扣款成功')
-                            # # 加日志
-                            # if not ramark_info:
-                            #     ramark_info = '无备注！'
-                            # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
-                            #     user.username) + ' 扣款 ' + ' 金额 ' + str(minus_money) + ' 元。' + ' 备注：' + str(ramark_info)
-                            # log.add_logs('3', content, self.request.user.id)
-                            # 更新代理余额
-                            proxy_user.total_money = '%.2f' % (Decimal(proxy_user.total_money) - Decimal(desc_money))
-                            proxy_user.money = '%.2f' % (Decimal(proxy_user.money) - Decimal(desc_money))
-                            proxy_user.save()
-                        else:
-                            code = 404
-                            resp['msg'].append('余额不足，扣款失败')
-                    if web_url:
-                        user.web_url = web_url
-                    user.save()
-                    serializer = ProxyUserDetailSerializer(user)
-                    return Response(data=serializer.data, status=code)
-                else:
-                    code = 400
-                    resp['msg'].append('商户id参数错误')
-                    return Response(resp, status=code)
-
-        code = 403
-        resp['msg'] = '没有操作权限'
-        return Response(data=resp, status=code)
+        if add_money:
+            user.total_money = '%.2f' % (user.total_money + add_money)
+            user.money = '%.2f' % (user.money + add_money)
+            # # 加日志
+            # if not ramark_info:
+            #     ramark_info = '无备注！'
+            # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
+            #     user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(ramark_info)
+            # log.add_logs('3', content, self.request.user.id)
+            # 更新代理余额
+            proxy_user.total_money = '%.2f' % (proxy_user.total_money + add_money)
+            proxy_user.money = '%.2f' % (proxy_user.money + add_money)
+            proxy_user.save()
+        if desc_money:
+            if desc_money <= user.total_money and proxy_user.total_money >= desc_money:
+                user.total_money = '%.2f' % (user.total_money - desc_money)
+                user.money = '%.2f' % (user.money - desc_money)
+                # # 加日志
+                # if not ramark_info:
+                #     ramark_info = '无备注！'
+                # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
+                #     user.username) + ' 扣款 ' + ' 金额 ' + str(minus_money) + ' 元。' + ' 备注：' + str(ramark_info)
+                # log.add_logs('3', content, self.request.user.id)
+                # 更新代理余额
+                proxy_user.total_money = '%.2f' % (proxy_user.total_money - desc_money)
+                proxy_user.money = '%.2f' % (proxy_user.money - desc_money)
+                proxy_user.save()
+            else:
+                code = 404
+        if web_url:
+            user.web_url = web_url
+        if auth_code:
+            user.auth_code = make_auth_code()
+        user.save()
+        serializer = ProxyUserDetailSerializer(user)
+        return Response(data=serializer.data, status=code)
 
 
 class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                            mixins.CreateModelMixin,
                            mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
+    permission_classes = (IsAuthenticated,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
@@ -156,7 +131,7 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         return user_list
 
     def get_queryset(self):
-        user = self.request.user
+        # user = self.request.user
         user_list = self.make_userlist()
         return RateInfo.objects.filter(user_id__in=user_list).order_by('-add_time')  # .order_by('-add_time')
 
@@ -173,30 +148,30 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         proxy_user = self.request.user
-        userid = request.data.get('user_id', '')
-        user_list = self.make_userlist()
-        if proxy_user.level == 2:
-            if userid:
-                if int(userid) in user_list:
-                    serializer = self.get_serializer(data=request.data)
-                    serializer.is_valid(raise_exception=True)
-                    validated_data = serializer.validated_data
-                    user = RateInfo.objects.create(**validated_data)
-                    code = 200
-                    resp['msg'] = '创建成功'
-                    serializer = ProxyRateInfoCreateSerializer(user)
-                    return Response(data=serializer.data, status=code)
-                else:
-                    code = 400
-                    resp['msg'] = '操作对象不存在'
-                    return Response(data=resp, status=code)
+        userid = serializer.validated_data.get('user_id')
+        channel_id = serializer.validated_data.get('channel_id')
+        if not channelInfo.objects.filter(id=channel_id):
+            code = 400
+            resp['msg'] = '操作通道不存在'
+            return Response(data=resp, status=code)
+        if userid:
+            user_list = self.make_userlist()
+            if int(userid) in user_list:
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                validated_data = serializer.validated_data
+                user = RateInfo.objects.create(**validated_data)
+                code = 200
+                resp['msg'] = '创建成功'
+                serializer = ProxyRateInfoCreateSerializer(user)
+                return Response(data=serializer.data, status=code)
             else:
                 code = 400
-                resp['msg'] = 'user_id无效参数'
+                resp['msg'] = '操作对象不存在'
                 return Response(data=resp, status=code)
         else:
-            code = 403
-            resp['msg'] = '没有操作权限'
+            code = 400
+            resp['msg'] = 'user_id无效参数'
             return Response(data=resp, status=code)
 
     def update(self, request, *args, **kwargs):
@@ -234,11 +209,11 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 
 
 class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
+    permission_classes = (IsAuthenticated,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
-    filter_class = OrdersFilter
+    filter_class = AdminOrderFilter
 
     def make_userlist(self):
         user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
@@ -256,7 +231,7 @@ class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
 
 class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                            mixins.UpdateModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
+    permission_classes = (IsAuthenticated,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -278,7 +253,6 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 
     def update(self, request, *args, **kwargs):
         resp = {'msg': []}
-        proxy_user = self.request.user
         withdraw_obj = self.get_object()
         code = 201
         serializer = self.get_serializer(data=request.data)
@@ -286,26 +260,22 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         withdraw_status = serializer.validated_data.get('withdraw_status', '')
         remark = self.request.data.get('remark', '')
         # 代理 修改 商户
-        if proxy_user.level == 2:
-            if remark:
-                withdraw_obj.remark = remark
-            if str(withdraw_status):
-                if withdraw_status in [0, 1]:
-                    withdraw_obj.withdraw_status = withdraw_status
-                else:
-                    code = 400
-                    resp['msg'] = '修改状态参数错误'
-                    return Response(data=resp, status=code)
-            serializer = ProxyWithDrawInfoDetailSerializer(withdraw_obj)
-            return Response(data=serializer.data, status=code)
-        code = 403
-        resp['msg'] = '没有操作权限'
-        return Response(data=resp, status=code)
+        if remark:
+            withdraw_obj.remark = remark
+        if str(withdraw_status):
+            if withdraw_status in [0, 1]:
+                withdraw_obj.withdraw_status = withdraw_status
+            else:
+                code = 400
+                resp['msg'] = '修改状态参数错误'
+                return Response(data=resp, status=code)
+        serializer = ProxyWithDrawInfoDetailSerializer(withdraw_obj)
+        return Response(data=serializer.data, status=code)
 
 
 class ProxyDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                          mixins.UpdateModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
+    permission_classes = (IsAuthenticated,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -327,48 +297,34 @@ class ProxyDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.
 
 
     def create(self, request, *args, **kwargs):
-        resp = {'msg': []}
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        proxy_user = self.request.user
-        if proxy_user.level == 2:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            validated_data = serializer.validated_data
-            del validated_data['password2']
-            device_obj = DeviceInfo.objects.create(**validated_data)
-            code = 200
-            resp['msg'] = '创建成功'
-            serializer = ProxyDeviceInfoDetailSerializer(device_obj)
-            return Response(data=serializer.data, status=code)
-        else:
-            code = 403
-            resp['msg'] = '没有操作权限'
-            return Response(data=resp, status=code)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+        del validated_data['password2']
+        device_obj = DeviceInfo.objects.create(**validated_data)
+        code = 200
+        serializer = ProxyDeviceInfoDetailSerializer(device_obj)
+        return Response(data=serializer.data, status=code)
 
     def update(self, request, *args, **kwargs):
-        resp = {'msg': []}
-        proxy_user = self.request.user
         device_obj = self.get_object()
         code = 201
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         is_active = serializer.validated_data.get('is_active', '')
         # 代理 修改 商户
-        if proxy_user.level == 2:
-            if str(is_active):
-                device_obj.is_active = is_active
-                device_obj.save()
-            serializer = ProxyDeviceInfoDetailSerializer(device_obj)
-            return Response(data=serializer.data, status=code)
-        code = 403
-        resp['msg'] = '没有操作权限'
-        return Response(data=resp, status=code)
+        if str(is_active):
+            device_obj.is_active = is_active
+            device_obj.save()
+        serializer = ProxyDeviceInfoDetailSerializer(device_obj)
+        return Response(data=serializer.data, status=code)
 
 
 class ProxyReceiveBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                               mixins.UpdateModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly,IsProxyOnly)
+    permission_classes = (IsAuthenticated,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -391,75 +347,49 @@ class ProxyReceiveBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mi
     def update(self, request, *args, **kwargs):
         resp = {'msg': []}
         proxy_user = self.request.user
-        receivebank_obj = self.get_object()
-        code = 201
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        deviceid=serializer.validated_data.get('device', '')
-        username=serializer.validated_data.get('username', '')
-        card_number=serializer.validated_data.get('card_number', '')
-        bank_type=serializer.validated_data.get('bank_type', '')
-        bank_mark=serializer.validated_data.get('bank_mark', '')
-        bank_tel=serializer.validated_data.get('bank_tel', '')
-        card_index=serializer.validated_data.get('card_index', '')
-        mobile=serializer.validated_data.get('mobile', '')
-        is_active=serializer.validated_data.get('is_active', '')
         # 代理 修改 商户
-        if proxy_user.level == 2:
-            print('serializer.validated_data', serializer.validated_data)
-            device_list = [device.id for device in DeviceInfo.objects.filter(user_id=proxy_user.id)]
-            if str(deviceid):
-                if deviceid in device_list:
-                    receivebank_obj.device = deviceid
-                else:
-                    code = 400
-                    resp['msg'] = '对应设备不存在'
-                    return Response(data=resp, status=code)
-            if username:
-                receivebank_obj.username = username
-            if card_number:
-                receivebank_obj.card_number = card_number
-            if bank_type:
-                receivebank_obj.bank_type = bank_type
-            if bank_mark:
-                receivebank_obj.bank_mark = bank_mark
-            if bank_tel:
-                receivebank_obj.bank_tel = bank_tel
-            if card_index:
-                receivebank_obj.card_index = card_index
-            if mobile:
-                receivebank_obj.mobile = mobile
-            if str(is_active):
-                receivebank_obj.is_active = is_active
-            receivebank_obj.save()
-            serializer = ProxyReceiveBankInfoDetailSerializer(receivebank_obj)
-            return Response(data=serializer.data, status=code)
-        code = 403
-        resp['msg'] = '没有操作权限'
-        return Response(data=resp, status=code)
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        device_list = [device.id for device in DeviceInfo.objects.filter(user_id=proxy_user.id)]
+        deviceid = serializer.validated_data.get('device')
+        if deviceid not in device_list:
+            code = 403
+            resp['msg'] = '绑定的设备不存在'
+            return Response(data=resp, status=code)
+        receivebank_obj=serializer.save()
+        code = 201
+        serializer = ProxyReceiveBankInfoDetailSerializer(receivebank_obj)
+        return Response(data=serializer.data, status=code)
 
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         proxy_user = self.request.user
-        if proxy_user.level == 2:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            device_list = [device.id for device in DeviceInfo.objects.filter(user_id=proxy_user.id)]
-            if serializer.validated_data.get('device', '') in device_list:
-                device_obj = DeviceInfo.objects.filter(id=serializer.validated_data.get('device', ''))[0]
-                serializer.validated_data['device'] = device_obj
-                receivebank_obj = serializer.save()
-                code = 200
-                resp['msg'] = '创建成功'
-                serializer = ProxyReceiveBankInfoDetailSerializer(receivebank_obj)
-                return Response(data=serializer.data, status=code)
-            else:
-                code = 400
-                resp['msg'] = '绑定的设备不存在'
-                return Response(data=resp, status=code)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        device_list = [device.id for device in DeviceInfo.objects.filter(user_id=proxy_user.id)]
+        if serializer.validated_data.get('device', '') in device_list:
+            receivebank_obj = serializer.save()
+            code = 200
+            serializer = ProxyReceiveBankInfoDetailSerializer(receivebank_obj)
+            return Response(data=serializer.data, status=code)
         else:
-            code = 403
-            resp['msg'] = '没有操作权限'
+            code = 400
+            resp['msg'] = '绑定的设备不存在'
             return Response(data=resp, status=code)
+
+class ProxyCountViewset(mixins.ListModelMixin, viewsets.GenericViewSet,mixins.RetrieveModelMixin):
+    permission_classes = [IsProxyOnly]
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = AdminProxyFilter
+
+    def get_queryset(self):
+        return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        return AdminCountDetailSerializer

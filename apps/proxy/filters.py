@@ -14,28 +14,22 @@ class ProxyUserFilter(filters.FilterSet):
         fields = ['username', 'id']
 
 
-class OrdersFilter(filters.FilterSet):
-    # min_price = filters.NumberFilter(field_name='real_money', lookup_expr='gte')
-    # max_price = filters.NumberFilter(field_name="real_money", lookup_expr='lte', help_text="最大金额")
-    pay_status = filters.CharFilter(field_name='pay_status', lookup_expr='icontains')
-    order_no = filters.CharFilter(field_name="order_no", lookup_expr='icontains', help_text="订单名称模糊查询")
-    # order_id = filters.CharFilter(field_name="order_id", help_text="商家订单名称模糊查询")
-    # remark = filters.CharFilter(field_name="remark", lookup_expr='icontains')
-    start_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='gte')
-    end_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='lte')
-    userid = filters.NumberFilter(field_name='user_id', help_text="根据用户ID")
-    deviceid =filters.NumberFilter(field_name='device_id', help_text="根据用户ID")
-    class Meta:
-        model = OrderInfo
-        fields = ['order_no', 'order_id', 'start_time', 'end_time', 'userid','deviceid']
-
-
-# class DeviceFilter(filters.FilterSet):
-#     username = filters.CharFilter(field_name="username", lookup_expr='icontains', help_text="名称模糊查询")
-#
+# class OrdersFilter(filters.FilterSet):
+#     # min_price = filters.NumberFilter(field_name='real_money', lookup_expr='gte')
+#     # max_price = filters.NumberFilter(field_name="real_money", lookup_expr='lte', help_text="最大金额")
+#     pay_status = filters.CharFilter(field_name='pay_status', lookup_expr='icontains')
+#     order_no = filters.CharFilter(field_name="order_no", lookup_expr='icontains', help_text="订单名称模糊查询")
+#     # order_id = filters.CharFilter(field_name="order_id", help_text="商家订单名称模糊查询")
+#     # remark = filters.CharFilter(field_name="remark", lookup_expr='icontains')
+#     start_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='gte')
+#     end_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='lte')
+#     userid = filters.NumberFilter(field_name='user_id', help_text="根据用户ID")
+#     deviceid =filters.NumberFilter(field_name='device_id', help_text="根据用户ID")
 #     class Meta:
-#         model = DeviceName
-#         fields = ['username']
+#         model = OrderInfo
+#         fields = ['order_no', 'order_id', 'start_time', 'end_time', 'userid','deviceid']
+
+
 
 class WithDrawFilter(filters.FilterSet):
     card_number = filters.CharFilter(field_name='withdraw_status', lookup_expr='icontains')
