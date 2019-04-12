@@ -24,7 +24,7 @@ from utils.permissions import IsOwnerOrReadOnly, IsUserOnly
 
 class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                       mixins.UpdateModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly, IsUserOnly)
+    permission_classes = (IsAuthenticated, IsUserOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
@@ -47,7 +47,8 @@ class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
         serializer.is_valid(raise_exception=True)
         password = self.request.data.get('password')
         password2 = self.request.data.get('password2')
-        auth_code = self.request.data.get('auth_code')
+        # auth_code = self.request.data.get('auth_code')
+        auth_code =serializer.validated_data.get('auth_code')
         original_safe_code = self.request.data.get('original_safe_code')
         safe_code = self.request.data.get('safe_code')
         safe_code2 = self.request.data.get('safe_code2')
@@ -57,7 +58,9 @@ class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
                 user.set_password(password)
             elif password != password2:
                 code = 400
+        print('auth_code', auth_code)
         if auth_code:
+
             user.auth_code = make_auth_code()
         if original_safe_code:
             if make_md5(original_safe_code) == user.safe_code:
