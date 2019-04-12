@@ -17,7 +17,7 @@ from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
 from user.models import UserProfile
 from user.serializers import UserDetailSerializer, UpdateUserInfoSerializer, UserOrderListSerializer, \
     UserWithDrawListSerializer, UserWithDrawCreateSerializer, UserWithDrawBankListSerializer, \
-    UserWithDrawBankCreateSerializer
+    UserWithDrawBankCreateSerializer, UpdateOnlyUserInfoSerializer
 from utils.make_code import make_auth_code, make_md5, generate_order_no
 from utils.permissions import IsOwnerOrReadOnly, IsUserOnly
 
@@ -34,7 +34,7 @@ class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
 
     def get_serializer_class(self):
         if self.action == 'update':
-            return UpdateUserInfoSerializer
+            return UpdateOnlyUserInfoSerializer
         return UserDetailSerializer
 
     def get_object(self):
@@ -52,6 +52,7 @@ class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
         original_safe_code = self.request.data.get('original_safe_code')
         safe_code = self.request.data.get('safe_code')
         safe_code2 = self.request.data.get('safe_code2')
+        print('serializer.validated_data',serializer.validated_data)
         # tuoxie001 修改自己
         if password:
             if password == password2:

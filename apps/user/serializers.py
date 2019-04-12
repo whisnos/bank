@@ -54,6 +54,21 @@ class UpdateUserInfoSerializer(serializers.ModelSerializer):
         fields = ['auth_code', 'password', 'password2', 'web_url', 'add_money', 'desc_money']
 
 
+class UpdateOnlyUserInfoSerializer(serializers.ModelSerializer):
+    auth_code = serializers.CharField(write_only=True, required=False, )
+    password2 = serializers.CharField(write_only=True, required=False, min_length=6,
+                                      style={'input_type': 'password'}, )
+    password = serializers.CharField(write_only=True, required=False, min_length=6,
+                                     style={'input_type': 'password'}, help_text='密码')
+    web_url = serializers.CharField(write_only=True, required=False, help_text='web_url')
+    # add_money = serializers.DecimalField(max_digits=7, decimal_places=2, help_text='加款', write_only=True,
+    #                                      required=False)
+    # desc_money = serializers.DecimalField(max_digits=7, decimal_places=2, help_text='扣款', write_only=True,
+    #                                       required=False)
+
+    class Meta:
+        model = UserProfile
+        fields = ['auth_code', 'password', 'password2', 'web_url']
 class ProxyUserCreateSerializer(serializers.ModelSerializer):
     username = serializers.CharField(label='用户名', required=True, min_length=5, max_length=20, allow_blank=False,
                                      validators=[
