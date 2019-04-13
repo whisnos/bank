@@ -14,16 +14,21 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
-from django.conf.urls import url,include
+from django.conf.urls import url, include
 
 from rest_framework.routers import DefaultRouter
-from .views import UserInfoViewset,UserOrderViewset,UserWithDrawViewset,UserWithDrawBankViewset,UserCountViewset
+from .views import UserInfoViewset, UserOrderViewset, UserWithDrawViewset, UserWithDrawBankViewset, UserCountViewset, \
+    UserCDataViewset, UserADataViewset,UserWDataViewset
+
 route = DefaultRouter()
 route.register(r'info', UserInfoViewset, base_name="info")
 route.register(r'order', UserOrderViewset, base_name="order")
 route.register(r'withdraw', UserWithDrawViewset, base_name="withdraw")
 route.register(r'withdrawbank', UserWithDrawBankViewset, base_name="withdrawbank")
 route.register(r'count', UserCountViewset, base_name="count")
+route.register(r'cdata', UserCDataViewset, base_name="cdata")
+route.register(r'wdata', UserWDataViewset, base_name="cdata")
+route.register(r'count', UserADataViewset, base_name="count")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

@@ -1,8 +1,10 @@
+from django.db.models import Sum, Q
+from django.http import HttpResponse
 from django.shortcuts import render
 
 # Create your views here.
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, viewsets, views
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -13,11 +15,11 @@ from channel.models import channelInfo
 from proxy.filters import WithDrawFilter
 from proxy.views import UserListPagination
 from spuser.filters import AdminProxyFilter, AdminOrderFilter, AdminChannelFilter
-from spuser.models import NoticeInfo
+from spuser.models import NoticeInfo, LogInfo
 from spuser.serializers import AdminUserDetailSerializer, AdminProxyCreateSerializer, AdminUpdateSerializer, \
     AdminUpdateUserSerializer, AdminChannelDetailSerializer, AdminChannelCreateSerializer, AdminOrderDetailSerializer, \
     AdminWithDrawInfoDetailSerializer, AdminNoticeInfoDetailSerializer, AdminProxyUpdateSerializer, \
-    AdminCountDetailSerializer
+    AdminCountDetailSerializer, AdminCUserDetailSerializer, ReleaseSerializer, CDataOrderSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from utils.make_code import make_uuid_code, make_auth_code, make_md5
@@ -124,7 +126,6 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
 
     def get_queryset(self):
         user = self.request.user
-        print('user.level', user.level)
         return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
 
     def get_serializer_class(self):
@@ -157,7 +158,6 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         if admin_user.is_superuser:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            print('self.request.data', request.data)
             password = self.request.data.get('password', '')
             password2 = self.request.data.get('password2', '')
             auth_code = self.request.data.get('auth_code', '')
@@ -194,7 +194,7 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
 
 class AdminChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.CreateModelMixin,
                           mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
@@ -247,7 +247,6 @@ class AdminOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.R
     permission_classes = [IsAdminUser]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
-    # queryset = OrderInfo.objects.all().order_by('-add_time')
     filter_backends = (DjangoFilterBackend,)
     filter_class = AdminOrderFilter
 
@@ -257,15 +256,9 @@ class AdminOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.R
 
     def get_queryset(self):
         user = self.request.user
-        print('user.level', user.level)
-        # if user.is_superuser:
         return OrderInfo.objects.all().order_by('-add_time')  # .order_by('-add_time')
-        # user_list = self.make_userlist()
-        # return OrderInfo.objects.filter(user_id__in=user_list).order_by('-add_time')
 
     def get_serializer_class(self):
-        # if self.action == 'create':
-        #     return AdminChannelCreateSerializer
         return AdminOrderDetailSerializer
 
 
@@ -278,10 +271,6 @@ class AdminWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
     filter_backends = (DjangoFilterBackend,)
     filter_class = WithDrawFilter
 
-    # def make_userlist(self):
-    #     user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
-    #     return user_list
-
     def get_queryset(self):
         return WithDrawInfo.objects.all().order_by('-id')  # .order_by('-add_time')
 
@@ -291,7 +280,7 @@ class AdminWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 
 class AdminNoticeViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                          mixins.DestroyModelMixin, mixins.UpdateModelMixin, mixins.CreateModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = (IsAdminUser,)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
@@ -301,16 +290,10 @@ class AdminNoticeViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.
     search_fields = ('title', "content")
 
     def get_queryset(self):
-        user = self.request.user
-        # if user.is_superuser:
         return NoticeInfo.objects.all().order_by('-add_time')  # .order_by('-add_time')
-        # return []
 
     def get_serializer_class(self):
         return AdminNoticeInfoDetailSerializer
-
-    def get_permissions(self):
-        return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
         if self.request.user.is_superuser:
@@ -359,7 +342,28 @@ class AdminNoticeViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.
             resp['msg'] = '没有操作权限'
             return Response(data=resp, status=code)
 
-class AdminCountViewset(mixins.ListModelMixin, viewsets.GenericViewSet,mixins.RetrieveModelMixin):
+
+class PublicNoticeViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    # filter_backends = (DjangoFilterBackend,)
+    # filter_class = WithDrawFilter
+    filter_backends = (SearchFilter,)
+    search_fields = ('title', "content")
+
+    def get_queryset(self):
+        return NoticeInfo.objects.all().order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        return AdminNoticeInfoDetailSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+
+class AdminCountViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
     permission_classes = [IsAdminUser]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
@@ -371,3 +375,220 @@ class AdminCountViewset(mixins.ListModelMixin, viewsets.GenericViewSet,mixins.Re
 
     def get_serializer_class(self):
         return AdminCountDetailSerializer
+
+
+class AdminCUserViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
+    permission_classes = [IsAdminUser, ]
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = AdminProxyFilter
+
+    def get_queryset(self):
+        return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        return AdminCUserDetailSerializer
+
+
+class AdminDeleteViewset(mixins.DestroyModelMixin, viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAdminUser,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    serializer_class = ReleaseSerializer
+    pagination_class = UserListPagination
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        return []
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.request.user
+        resp = {'msg': '操作成功'}
+        processed_dict = {}
+        for key, value in self.request.data.items():
+            processed_dict[key] = value
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        s_time = serializer.validated_data.get('s_time', '')
+        e_time = serializer.validated_data.get('e_time', '')
+        dele_type = serializer.validated_data.get('dele_type', '')
+        safe_code = serializer.validated_data.get('safe_code', '')
+        new_key = make_md5(safe_code)
+        if new_key == user.safe_code:
+            if dele_type == 'order':
+                order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time))
+            elif dele_type == 'money':
+                order_queryset = WithDrawInfo.objects.filter(add_time__range=(s_time, e_time))
+            elif dele_type == 'log':
+                order_queryset = LogInfo.objects.filter(add_time__range=(s_time, e_time))
+            else:
+                code = 400
+                resp['msg'] = '类型错误'
+                return Response(data=resp, status=code)
+            if order_queryset:
+                for obj in order_queryset:
+                    print(obj.id)
+                    obj.delete()
+            code = 200
+            return Response(data=resp, status=code)
+        else:
+            code = 400
+            resp['msg'] = '操作密码错误'
+            return Response(data=resp, status=code)
+
+
+class AdminWDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAdminUser,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    serializer_class = CDataOrderSerializer
+
+    def list(self, request, *args, **kwargs):
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        user_queryset = UserProfile.objects.filter(level=3)
+        # 总金额
+        total_money = user_queryset.aggregate(
+            total_money=Sum('total_money')).get('total_money', '0')
+        # 可提现
+        ke_money = user_queryset.aggregate(
+            money=Sum('money')).get('money', '0')
+        # 已提现
+        withd_queryset = WithDrawInfo.objects.filter(withdraw_status=1)
+        yi_money = withd_queryset.aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # 提现中
+        withd_queryset = WithDrawInfo.objects.filter(withdraw_status=0)
+        zhong_money = withd_queryset.aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+
+        # 可提现
+        resp['ke_money'] = ke_money
+        # 已提现
+        resp['yi_money'] = yi_money
+        # 提现中
+        resp['zhong_money'] = zhong_money
+        # 总金额
+        resp['total_money'] = total_money
+
+        code = 200
+        return Response(data=resp, status=code)
+
+
+class AdminCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAdminUser,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    serializer_class = CDataOrderSerializer
+
+    # pagination_class = UserListPagination
+    # filter_backends = (DjangoFilterBackend,)
+    # filter_class = AdminOrderFilter
+
+    def list(self, request, *args, **kwargs):
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        s_time = request.GET.get('s_time')
+        e_time = request.GET.get('e_time')
+        order_queryset = OrderInfo.objects.filter(
+            add_time__range=(s_time, e_time))  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        user_queryset = UserProfile.objects.filter(level=3)
+        # 总金额
+        total_money = user_queryset.aggregate(
+            total_money=Sum('total_money')).get('total_money', '0')
+        # 可提现
+        ke_money = user_queryset.aggregate(
+            money=Sum('money')).get('money', '0')
+        # 已提现
+        withd_queryset = WithDrawInfo.objects.filter(withdraw_status=1)
+        yi_money = withd_queryset.aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # 提现中
+        withd_queryset = WithDrawInfo.objects.filter(withdraw_status=0)
+        zhong_money = withd_queryset.aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+
+        # 订单
+        resp['all_money'] = all_money
+        resp['success_money'] = success_money
+        resp['all_num'] = all_num
+        resp['success_num'] = success_num
+        # 可提现
+        resp['ke_money'] = ke_money
+        # 已提现
+        resp['yi_money'] = yi_money
+        # 提现中
+        resp['zhong_money'] = zhong_money
+        # 总金额
+        resp['total_money'] = total_money
+
+        code = 200
+        return Response(data=resp, status=code)
+
+
+class GetPayView(views.APIView):
+    def get(self, request):
+        user = request.user
+        s_time = request.GET.get('s_time')
+        e_time = request.GET.get('e_time')
+        print(s_time, e_time)
+        if user.is_superuser:
+            order_queryset = OrderInfo.objects.filter(Q(add_time__lte=s_time) | Q(add_time__gte=e_time)).aggregate(
+                real_money=Sum('real_money'))
+            print('order_queryset', order_queryset)
+            a = order_queryset.get('real_money', '0')
+            print(a)
+            resp = {'msg': '操作成功'}
+            code = 200
+            return Response(data=resp, status=code)
+        else:
+            resp = {'msg': '操作失败'}
+            code = 400
+            return Response(data=resp, status=code)
+
+
+class PublicChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = AdminChannelFilter
+
+    def get_queryset(self):
+        return channelInfo.objects.all().order_by('-id')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        return AdminChannelDetailSerializer
+
+
+class AdminADataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAdminUser,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+
+    # serializer_class = CDataOrderSerializer
+
+    def list(self, request, *args, **kwargs):
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        order_queryset = OrderInfo.objects.all()  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        # 订单
+        resp['success_money'] = success_money
+        resp['all_money'] = all_money
+        resp['success_num'] = success_num
+        resp['all_num'] = all_num
+
+        code = 200
+        return Response(data=resp, status=code)

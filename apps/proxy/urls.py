@@ -18,7 +18,7 @@ from django.conf.urls import url, include
 
 from rest_framework.routers import DefaultRouter
 from .views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
-    ProxyDeviceViewset, ProxyReceiveBankViewset,ProxyCountViewset
+    ProxyDeviceViewset, ProxyReceiveBankViewset,ProxyCountViewset,ProxyCDatatViewset,ProxyADataViewset,ProxyWDatatViewset
 
 route = DefaultRouter()
 route.register(r'user', ProxyUserInfoViewset, base_name="proxy/info")
@@ -28,6 +28,9 @@ route.register(r'withdraw', ProxyWithDrawViewset, base_name="proxy/withdraw")
 route.register(r'device', ProxyDeviceViewset, base_name="proxy/device")
 route.register(r'receivebankinfo', ProxyReceiveBankViewset, base_name="proxy/receivebankinfo")
 route.register(r'count', ProxyCountViewset, base_name="proxy/count")
+route.register(r'cdata', ProxyCDatatViewset, base_name="proxy/cdata")
+route.register(r'wdata', ProxyWDatatViewset, base_name="proxy/wdata")
+route.register(r'adata', ProxyADataViewset, base_name="proxy/adata")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

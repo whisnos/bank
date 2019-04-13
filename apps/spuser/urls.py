@@ -14,10 +14,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
-from django.conf.urls import url,include
+from django.conf.urls import url, include
 
 from rest_framework.routers import DefaultRouter
-from .views import AdminProxyViewset,AdminuserProxyViewset,AdminChannelViewset,AdminOrderViewset,AdminWithDrawViewset,AdminNoticeViewset,AdminCountViewset
+from .views import AdminProxyViewset, AdminuserProxyViewset, AdminChannelViewset, AdminOrderViewset, \
+    AdminWithDrawViewset, AdminNoticeViewset, AdminCountViewset, AdminCUserViewset, AdminDeleteViewset, \
+    AdminCDataViewset, GetPayView, AdminADataViewset,AdminWDataViewset
+
 route = DefaultRouter()
 route.register(r'proxy', AdminProxyViewset, base_name="admin/proxy")
 route.register(r'user', AdminuserProxyViewset, base_name="admin/user")
@@ -26,6 +29,12 @@ route.register(r'order', AdminOrderViewset, base_name="admin/order")
 route.register(r'withdraw', AdminWithDrawViewset, base_name="admin/withdraw")
 route.register(r'notice', AdminNoticeViewset, base_name="admin/notice")
 route.register(r'count', AdminCountViewset, base_name="admin/count")
+route.register(r'cuser', AdminCUserViewset, base_name="admin/cuser")
+route.register(r'delete', AdminDeleteViewset, base_name="admin/delete")
+route.register(r'cdata', AdminCDataViewset, base_name="admin/cdata")
+route.register(r'wdata', AdminWDataViewset, base_name="admin/wdata")
+route.register(r'adata', AdminADataViewset, base_name="admin/adata")
 urlpatterns = [
     url(r'^', include(route.urls)),
+    url(r'^test/$', GetPayView.as_view(), name="get_pay"),
 ]

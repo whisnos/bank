@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.db.models import Sum
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, mixins
@@ -12,12 +13,11 @@ from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 from proxy.filters import WithDrawFilter, WithDrawBankFilter
 from proxy.views import UserListPagination
 from spuser.filters import AdminOrderFilter, AdminProxyFilter
-from spuser.serializers import AdminCountDetailSerializer
 from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
 from user.models import UserProfile
-from user.serializers import UserDetailSerializer, UpdateUserInfoSerializer, UserOrderListSerializer, \
+from user.serializers import UserDetailSerializer, UserOrderListSerializer, \
     UserWithDrawListSerializer, UserWithDrawCreateSerializer, UserWithDrawBankListSerializer, \
-    UserWithDrawBankCreateSerializer, UpdateOnlyUserInfoSerializer
+    UserWithDrawBankCreateSerializer, UpdateOnlyUserInfoSerializer, UserCountDetailSerializer
 from utils.make_code import make_auth_code, make_md5, generate_order_no
 from utils.permissions import IsOwnerOrReadOnly, IsUserOnly
 
@@ -47,8 +47,7 @@ class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
         serializer.is_valid(raise_exception=True)
         password = self.request.data.get('password')
         password2 = self.request.data.get('password2')
-        # auth_code = self.request.data.get('auth_code')
-        auth_code =serializer.validated_data.get('auth_code')
+        auth_code = serializer.validated_data.get('auth_code')
         original_safe_code = self.request.data.get('original_safe_code')
         safe_code = self.request.data.get('safe_code')
         safe_code2 = self.request.data.get('safe_code2')
@@ -59,7 +58,6 @@ class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
             elif password != password2:
                 code = 400
         if auth_code:
-
             user.auth_code = make_auth_code()
         if original_safe_code:
             if make_md5(original_safe_code) == user.safe_code:
@@ -78,7 +76,7 @@ class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
 
 
 class UserOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly, IsUserOnly)
+    permission_classes = (IsAuthenticated, IsUserOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -96,7 +94,7 @@ class UserOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Re
 
 class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                           mixins.CreateModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly, IsUserOnly)
+    permission_classes = (IsAuthenticated, IsUserOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -119,6 +117,7 @@ class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
+        print('validated_data', validated_data)
         withdraw_no = generate_order_no(proxy_user.id)
         validated_data['withdraw_no'] = withdraw_no
         bankid = validated_data.get('bank')
@@ -160,7 +159,7 @@ class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
 
 class UserWithDrawBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                               mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly, IsUserOnly)
+    permission_classes = (IsAuthenticated, IsUserOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -179,7 +178,7 @@ class UserWithDrawBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mi
 
 
 class UserCountViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
-    permission_classes = [IsUserOnly]
+    permission_classes = [IsAuthenticated, IsUserOnly]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
@@ -192,4 +191,113 @@ class UserCountViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Re
         return self.request.user
 
     def get_serializer_class(self):
-        return AdminCountDetailSerializer
+        return UserCountDetailSerializer
+
+
+class UserWDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAuthenticated, IsUserOnly,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+
+    def list(self, request, *args, **kwargs):
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+
+        user_queryset = UserProfile.objects.filter(id=self.request.user.id)
+        # 总金额
+        total_money = user_queryset.aggregate(
+            total_money=Sum('total_money')).get('total_money', '0')
+        # 可提现
+        ke_money = user_queryset.aggregate(
+            money=Sum('money')).get('money', '0')
+        # 已提现
+        withd_queryset = WithDrawInfo.objects.filter(id=self.request.user.id)
+        yi_money = withd_queryset.filter(withdraw_status=1).aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # 提现中
+        zhong_money = withd_queryset.filter(withdraw_status=0).aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # 可提现
+        resp['ke_money'] = ke_money
+        # 已提现
+        resp['yi_money'] = yi_money
+        # 提现中
+        resp['zhong_money'] = zhong_money
+        # 总金额
+        resp['total_money'] = total_money
+
+        code = 200
+        return Response(data=resp, status=code)
+class UserCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAuthenticated, IsUserOnly,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+
+    def list(self, request, *args, **kwargs):
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        s_time = request.GET.get('s_time')
+        e_time = request.GET.get('e_time')
+
+        order_queryset = OrderInfo.objects.filter(
+            add_time__range=(s_time, e_time),
+            id=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        user_queryset = UserProfile.objects.filter(id=self.request.user.id)
+        # 总金额
+        total_money = user_queryset.aggregate(
+            total_money=Sum('total_money')).get('total_money', '0')
+        # 可提现
+        ke_money = user_queryset.aggregate(
+            money=Sum('money')).get('money', '0')
+        # 已提现
+        withd_queryset = WithDrawInfo.objects.filter(id=self.request.user.id)
+        yi_money = withd_queryset.filter(withdraw_status=1).aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # 提现中
+        zhong_money = withd_queryset.filter(withdraw_status=0).aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+
+        # 订单
+        resp['all_money'] = all_money
+        resp['success_money'] = success_money
+        resp['all_num'] = all_num
+        resp['success_num'] = success_num
+        # 可提现
+        resp['ke_money'] = ke_money
+        # 已提现
+        resp['yi_money'] = yi_money
+        # 提现中
+        resp['zhong_money'] = zhong_money
+        # 总金额
+        resp['total_money'] = total_money
+
+        code = 200
+        return Response(data=resp, status=code)
+
+
+class UserADataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAuthenticated, IsUserOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+
+    def list(self, request, *args, **kwargs):
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        order_queryset = OrderInfo.objects.filter(
+            user_id=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        # 订单
+        resp['success_money'] = success_money
+        resp['all_money'] = all_money
+        resp['success_num'] = success_num
+        resp['all_num'] = all_num
+
+        code = 200
+        return Response(data=resp, status=code)

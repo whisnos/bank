@@ -1,5 +1,4 @@
-from decimal import Decimal
-
+from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, mixins
 from rest_framework.authentication import SessionAuthentication
@@ -15,15 +14,15 @@ from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSeri
     UpdateRateInfoSerializer, ProxyWithDrawInfoDetailSerializer, \
     ProxyWithDrawInfoUpdateDetailSerializer, ProxyDeviceInfoDetailSerializer, ProxyDeviceUpdateDetailSerializer, \
     ProxyWithDrawInfoCreSerializer, ProxyReceiveBankInfoDetailSerializer, ProxyReceiveBankCreDetailSerializer, \
-    ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer
+    ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer, ProxyCountDetailSerializer
 from spuser.filters import AdminOrderFilter, AdminProxyFilter
-from spuser.serializers import AdminOrderDetailSerializer, AdminCountDetailSerializer
+from spuser.serializers import AdminOrderDetailSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from user.serializers import UpdateUserInfoSerializer, ProxyUserCreateSerializer
 
-from utils.make_code import make_auth_code, make_md5, make_uuid_code
-from utils.permissions import IsOwnerOrReadOnly, IsProxyOnly
+from utils.make_code import make_auth_code, make_uuid_code
+from utils.permissions import IsProxyOnly
 
 
 class UserListPagination(PageNumberPagination):
@@ -185,27 +184,23 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         is_map = serializer.validated_data.get('is_map', '')
         mapid = self.request.data.get('mapid', '')
         # 代理 修改 商户
-        if proxy_user.level == 2:
-            if rate:
-                rate_obj.rate = rate
-                rate_obj.save()
-            if str(is_map):
-                if is_map:
-                    if mapid:
-                        rate_obj.is_map = is_map
-                        rate_obj.mapid = mapid
-                    else:
-                        code = 400
-                        resp['msg'] = '映射ip必传'
-                        return Response(data=resp, status=code)
-                if is_map == False:
-                    rate_obj.is_map = is_map
+        if rate:
+            rate_obj.rate = rate
             rate_obj.save()
-            serializer = ProxyRateInfoDetailSerializer(rate_obj)
-            return Response(data=serializer.data, status=code)
-        code = 403
-        resp['msg'] = '没有操作权限'
-        return Response(data=resp, status=code)
+        if str(is_map):
+            if is_map:
+                if mapid:
+                    rate_obj.is_map = is_map
+                    rate_obj.mapid = mapid
+                else:
+                    code = 400
+                    resp['msg'] = '映射ip必传'
+                    return Response(data=resp, status=code)
+            if is_map == False:
+                rate_obj.is_map = is_map
+        rate_obj.save()
+        serializer = ProxyRateInfoDetailSerializer(rate_obj)
+        return Response(data=serializer.data, status=code)
 
 
 class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
@@ -224,7 +219,6 @@ class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
         return OrderInfo.objects.filter(user_id__in=user_list).order_by('-add_time')  # .order_by('-add_time')
 
     def get_serializer_class(self):
-        # return ProxyOrderInfoDetailSerializer
         return AdminOrderDetailSerializer
 
 
@@ -382,14 +376,122 @@ class ProxyReceiveBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mi
             return Response(data=resp, status=code)
 
 class ProxyCountViewset(mixins.ListModelMixin, viewsets.GenericViewSet,mixins.RetrieveModelMixin):
-    permission_classes = [IsProxyOnly]
+    permission_classes = [IsAuthenticated,IsProxyOnly]
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
     filter_class = AdminProxyFilter
 
     def get_queryset(self):
-        return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
+        return UserProfile.objects.filter(proxy_id=self.request.user.id).order_by('-add_time')  # .order_by('-add_time')
 
     def get_serializer_class(self):
-        return AdminCountDetailSerializer
+        return ProxyCountDetailSerializer
+
+
+class ProxyWDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAuthenticated,IsProxyOnly,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+
+    def list(self, request, *args, **kwargs):
+        resp = {} # ?s_time=2019-4-12&e_time=2019-4-16
+        user_queryset = UserProfile.objects.filter(proxy_id=self.request.user.id)
+        user_list=[d.id for d in user_queryset]
+        # 总金额
+        total_money = user_queryset.aggregate(
+            total_money=Sum('total_money')).get('total_money', '0')
+        # 可提现
+        ke_money = user_queryset.aggregate(
+            money=Sum('money')).get('money', '0')
+        # 已提现
+        withd_queryset = WithDrawInfo.objects.filter(user_id__in=user_list)
+        yi_money = withd_queryset.filter(withdraw_status=1).aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # 提现中
+        zhong_money = withd_queryset.filter(withdraw_status=0).aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+
+        # 可提现
+        resp['ke_money'] = ke_money
+        # 已提现
+        resp['yi_money'] = yi_money
+        # 提现中
+        resp['zhong_money'] = zhong_money
+        # 总金额
+        resp['total_money'] = total_money
+
+        code = 200
+        return Response(data=resp, status=code)
+class ProxyCDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAuthenticated,IsProxyOnly,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+
+    def list(self, request, *args, **kwargs):
+        resp = {} # ?s_time=2019-4-12&e_time=2019-4-16
+        s_time = request.GET.get('s_time')
+        e_time = request.GET.get('e_time')
+
+        order_queryset = OrderInfo.objects.filter(
+            add_time__range=(s_time, e_time),proxy=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        user_queryset = UserProfile.objects.filter(proxy_id=self.request.user.id)
+        user_list=[d.id for d in user_queryset]
+        # 总金额
+        total_money = user_queryset.aggregate(
+            total_money=Sum('total_money')).get('total_money', '0')
+        # 可提现
+        ke_money = user_queryset.aggregate(
+            money=Sum('money')).get('money', '0')
+        # 已提现
+        withd_queryset = WithDrawInfo.objects.filter(user_id__in=user_list)
+        yi_money = withd_queryset.filter(withdraw_status=1).aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # 提现中
+        zhong_money = withd_queryset.filter(withdraw_status=0).aggregate(
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+
+        # 订单
+        resp['all_money'] = all_money
+        resp['success_money'] = success_money
+        resp['all_num'] = all_num
+        resp['success_num'] = success_num
+        # 可提现
+        resp['ke_money'] = ke_money
+        # 已提现
+        resp['yi_money'] = yi_money
+        # 提现中
+        resp['zhong_money'] = zhong_money
+        # 总金额
+        resp['total_money'] = total_money
+
+        code = 200
+        return Response(data=resp, status=code)
+
+class ProxyADataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    permission_classes = (IsAuthenticated,IsProxyOnly,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+
+    def list(self, request, *args, **kwargs):
+        resp = {} # ?s_time=2019-4-12&e_time=2019-4-16
+        order_queryset = OrderInfo.objects.filter(proxy=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        # 订单
+        resp['success_money'] = success_money
+        resp['all_money'] = all_money
+        resp['success_num'] = success_num
+        resp['all_num'] = all_num
+
+        code = 200
+        return Response(data=resp, status=code)

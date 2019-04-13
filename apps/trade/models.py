@@ -44,7 +44,7 @@ class WithDrawBankInfo(models.Model):
     card_number = models.CharField(max_length=50, verbose_name='账号')
     open_bank = models.CharField(max_length=50, null=True, blank=True, verbose_name='开户行')
     bank_name = models.CharField(max_length=20, verbose_name='银行名称')
-    mobile = models.CharField(max_length=11, verbose_name='手机号')
+    mobile = models.CharField(max_length=11, null=True, blank=True,verbose_name='手机号')
     add_time = models.DateTimeField(default=datetime.now, verbose_name='创建时间')
     user = models.ForeignKey(UserProfile, verbose_name='用户', on_delete=models.CASCADE)
 
