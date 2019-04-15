@@ -1,4 +1,8 @@
-from django.db.models import Sum
+import datetime
+import re
+import time
+
+from django.db.models import Sum, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, mixins
 from rest_framework.authentication import SessionAuthentication
@@ -14,9 +18,10 @@ from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSeri
     UpdateRateInfoSerializer, ProxyWithDrawInfoDetailSerializer, \
     ProxyWithDrawInfoUpdateDetailSerializer, ProxyDeviceInfoDetailSerializer, ProxyDeviceUpdateDetailSerializer, \
     ProxyWithDrawInfoCreSerializer, ProxyReceiveBankInfoDetailSerializer, ProxyReceiveBankCreDetailSerializer, \
-    ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer, ProxyCountDetailSerializer
+    ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer, ProxyCountDetailSerializer, \
+    ProxyCODataRetrieveSerializer, ProxyCODataSerializer
 from spuser.filters import AdminOrderFilter, AdminProxyFilter
-from spuser.serializers import AdminOrderDetailSerializer
+from spuser.serializers import AdminOrderDetailSerializer, OrderChartListSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from user.serializers import UpdateUserInfoSerializer, ProxyUserCreateSerializer
@@ -29,7 +34,7 @@ class UserListPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     page_query_param = 'page'
-    max_page_size = 100
+    max_page_size = 100000
 
 
 class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
@@ -210,13 +215,9 @@ class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
     filter_backends = (DjangoFilterBackend,)
     filter_class = AdminOrderFilter
 
-    def make_userlist(self):
-        user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
-        return user_list
 
     def get_queryset(self):
-        user_list = self.make_userlist()
-        return OrderInfo.objects.filter(user_id__in=user_list).order_by('-add_time')  # .order_by('-add_time')
+        return OrderInfo.objects.filter(proxy=self.request.user.id).order_by('-add_time')  # .order_by('-add_time')
 
     def get_serializer_class(self):
         return AdminOrderDetailSerializer
@@ -257,12 +258,14 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         if remark:
             withdraw_obj.remark = remark
         if str(withdraw_status):
-            if withdraw_status in [0, 1]:
+            if withdraw_status in [0, 1,2]:
                 withdraw_obj.withdraw_status = withdraw_status
+                withdraw_obj.receive_time = datetime.datetime.now()
             else:
                 code = 400
                 resp['msg'] = '修改状态参数错误'
                 return Response(data=resp, status=code)
+        withdraw_obj.save()
         serializer = ProxyWithDrawInfoDetailSerializer(withdraw_obj)
         return Response(data=serializer.data, status=code)
 
@@ -428,8 +431,25 @@ class ProxyCDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
 
     def list(self, request, *args, **kwargs):
         resp = {} # ?s_time=2019-4-12&e_time=2019-4-16
-        s_time = request.GET.get('s_time')
-        e_time = request.GET.get('e_time')
+        now = datetime.datetime.now()
+        # 今天零点
+        a_time = (now - datetime.timedelta(hours=now.hour, minutes=now.minute))
+        t_time = a_time.strftime('%Y-%m-%d %H:%M')
+        te_time = (a_time + datetime.timedelta(hours=23, minutes=59, seconds=59)).strftime(
+            '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
+        s_time = request.GET.get('start_time', t_time)
+        e_time = request.GET.get('end_time', te_time)
+        if not s_time or not e_time:
+            s_time = t_time
+            e_time = te_time
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(s_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(e_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
 
         order_queryset = OrderInfo.objects.filter(
             add_time__range=(s_time, e_time),proxy=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
@@ -440,35 +460,35 @@ class ProxyCDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         all_num = order_queryset.count()
         success_num = order_queryset.filter(pay_status=1).count()
 
-        user_queryset = UserProfile.objects.filter(proxy_id=self.request.user.id)
-        user_list=[d.id for d in user_queryset]
-        # 总金额
-        total_money = user_queryset.aggregate(
-            total_money=Sum('total_money')).get('total_money', '0')
-        # 可提现
-        ke_money = user_queryset.aggregate(
-            money=Sum('money')).get('money', '0')
-        # 已提现
-        withd_queryset = WithDrawInfo.objects.filter(user_id__in=user_list)
-        yi_money = withd_queryset.filter(withdraw_status=1).aggregate(
-            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
-        # 提现中
-        zhong_money = withd_queryset.filter(withdraw_status=0).aggregate(
-            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # user_queryset = UserProfile.objects.filter(proxy_id=self.request.user.id)
+        # user_list=[d.id for d in user_queryset]
+        # # 总金额
+        # total_money = user_queryset.aggregate(
+        #     total_money=Sum('total_money')).get('total_money', '0')
+        # # 可提现
+        # ke_money = user_queryset.aggregate(
+        #     money=Sum('money')).get('money', '0')
+        # # 已提现
+        # withd_queryset = WithDrawInfo.objects.filter(user_id__in=user_list)
+        # yi_money = withd_queryset.filter(withdraw_status=1).aggregate(
+        #     withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # # 提现中
+        # zhong_money = withd_queryset.filter(withdraw_status=0).aggregate(
+        #     withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
 
         # 订单
         resp['all_money'] = all_money
         resp['success_money'] = success_money
         resp['all_num'] = all_num
         resp['success_num'] = success_num
-        # 可提现
-        resp['ke_money'] = ke_money
-        # 已提现
-        resp['yi_money'] = yi_money
-        # 提现中
-        resp['zhong_money'] = zhong_money
-        # 总金额
-        resp['total_money'] = total_money
+        # # 可提现
+        # resp['ke_money'] = ke_money
+        # # 已提现
+        # resp['yi_money'] = yi_money
+        # # 提现中
+        # resp['zhong_money'] = zhong_money
+        # # 总金额
+        # resp['total_money'] = total_money
 
         code = 200
         return Response(data=resp, status=code)
@@ -495,3 +515,119 @@ class ProxyADataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
 
         code = 200
         return Response(data=resp, status=code)
+
+class ProxyCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    permission_classes = (IsAuthenticated,IsProxyOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    def get_queryset(self):
+        return UserProfile.objects.filter(proxy_id=self.request.user.id).order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return ProxyCODataRetrieveSerializer
+        return ProxyCODataSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        user = self.get_object()
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        now = datetime.datetime.now()
+        # 今天零点
+        a_time = (now - datetime.timedelta(hours=now.hour, minutes=now.minute))
+        t_time = a_time.strftime('%Y-%m-%d %H:%M')
+        te_time = (a_time + datetime.timedelta(hours=23, minutes=59, seconds=59)).strftime(
+            '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
+        s_time = request.GET.get('start_time', t_time)
+        e_time = request.GET.get('end_time', te_time)
+        if not s_time or not e_time:
+            s_time = t_time
+            e_time = te_time
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(s_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(e_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+        print('s_time',s_time,e_time)
+        order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),user_id=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        print('order_queryset',order_queryset)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        # 订单
+        resp['success_money'] = success_money
+        resp['all_money'] = all_money
+        resp['success_num'] = success_num
+        resp['all_num'] = all_num
+
+        code = 200
+        return Response(data=resp, status=code)
+
+class ProxyCUDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    permission_classes = (IsAuthenticated,IsProxyOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    def get_queryset(self):
+        return UserProfile.objects.filter(proxy_id=self.request.user.id).order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return ProxyCODataRetrieveSerializer
+        return ProxyCODataSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        user = self.get_object()
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        now = datetime.datetime.now()
+        # 今天零点
+        a_time = (now - datetime.timedelta(hours=now.hour, minutes=now.minute))
+        t_time = a_time.strftime('%Y-%m-%d %H:%M')
+        te_time = (a_time + datetime.timedelta(hours=23, minutes=59, seconds=59)).strftime(
+            '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
+        s_time = request.GET.get('start_time', t_time)
+        e_time = request.GET.get('end_time', te_time)
+        if not s_time or not e_time:
+            s_time = t_time
+            e_time = te_time
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(s_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(e_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+        print('s_time',s_time,e_time)
+        order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),user_id=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        print('order_queryset',order_queryset)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        # 订单
+        resp['success_money'] = success_money
+        resp['all_money'] = all_money
+        resp['success_num'] = success_num
+        resp['all_num'] = all_num
+
+        code = 200
+        return Response(data=resp, status=code)
+class ProxyChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
+    permission_classes = (IsAuthenticated, IsProxyOnly)
+    serializer_class = OrderChartListSerializer
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    def get_queryset(self):
+        return OrderInfo.objects.filter(
+            Q(pay_status=1) | Q(pay_status=3),
+            add_time__gte=time.strftime('%Y-%m-%d', time.localtime()),proxy=self.request.user.id
+        ).order_by('-add_time')

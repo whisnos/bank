@@ -18,7 +18,8 @@ from django.conf.urls import url, include
 
 from rest_framework.routers import DefaultRouter
 from .views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
-    ProxyDeviceViewset, ProxyReceiveBankViewset,ProxyCountViewset,ProxyCDatatViewset,ProxyADataViewset,ProxyWDatatViewset
+    ProxyDeviceViewset, ProxyReceiveBankViewset, ProxyCountViewset, ProxyCDatatViewset, ProxyADataViewset, \
+    ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset
 
 route = DefaultRouter()
 route.register(r'user', ProxyUserInfoViewset, base_name="proxy/info")
@@ -31,6 +32,9 @@ route.register(r'count', ProxyCountViewset, base_name="proxy/count")
 route.register(r'cdata', ProxyCDatatViewset, base_name="proxy/cdata")
 route.register(r'wdata', ProxyWDatatViewset, base_name="proxy/wdata")
 route.register(r'adata', ProxyADataViewset, base_name="proxy/adata")
+route.register(r'codata', ProxyCODataViewset, base_name="proxy/codata")
+route.register(r'proxy/cudata', ProxyCUDataViewset, base_name="proxy/cudata")
+route.register(r'chart', ProxyChartViewset, base_name="proxy/chart")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

@@ -1,10 +1,14 @@
+import datetime
+import re
+import time
+
 from django.db.models import Sum, Q
 from django.http import HttpResponse
 from django.shortcuts import render
 
 # Create your views here.
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import mixins, viewsets, views
+from rest_framework import mixins, viewsets, views, serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -19,7 +23,8 @@ from spuser.models import NoticeInfo, LogInfo
 from spuser.serializers import AdminUserDetailSerializer, AdminProxyCreateSerializer, AdminUpdateSerializer, \
     AdminUpdateUserSerializer, AdminChannelDetailSerializer, AdminChannelCreateSerializer, AdminOrderDetailSerializer, \
     AdminWithDrawInfoDetailSerializer, AdminNoticeInfoDetailSerializer, AdminProxyUpdateSerializer, \
-    AdminCountDetailSerializer, AdminCUserDetailSerializer, ReleaseSerializer, CDataOrderSerializer
+    AdminCountDetailSerializer, AdminCUserDetailSerializer, ReleaseSerializer, \
+    AdminCODataSerializer, AdminCODataRetrieveSerializer, AdminCDataOrderSerializer, OrderChartListSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from utils.make_code import make_uuid_code, make_auth_code, make_md5
@@ -443,7 +448,7 @@ class AdminDeleteViewset(mixins.DestroyModelMixin, viewsets.GenericViewSet, mixi
 class AdminWDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = (IsAdminUser,)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
-    serializer_class = CDataOrderSerializer
+    serializer_class = AdminCDataOrderSerializer
 
     def list(self, request, *args, **kwargs):
         resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
@@ -479,16 +484,31 @@ class AdminWDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
 class AdminCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = (IsAdminUser,)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
-    serializer_class = CDataOrderSerializer
-
-    # pagination_class = UserListPagination
-    # filter_backends = (DjangoFilterBackend,)
-    # filter_class = AdminOrderFilter
+    serializer_class = AdminCDataOrderSerializer
 
     def list(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
-        s_time = request.GET.get('s_time')
-        e_time = request.GET.get('e_time')
+        now = datetime.datetime.now()
+        # 今天零点
+        a_time = (now - datetime.timedelta(hours=now.hour, minutes=now.minute))
+        t_time=a_time.strftime('%Y-%m-%d %H:%M')
+        te_time = (a_time + datetime.timedelta(hours=23, minutes=59, seconds=59)).strftime('%Y-%m-%d %H:%M') # .strftime('%Y-%m-%d %H:%M')
+        s_time = request.GET.get('start_time', t_time)
+        e_time = request.GET.get('end_time', te_time)
+        if not s_time or not e_time:
+            s_time = t_time
+            e_time = te_time
+        print('t_time',t_time,te_time)
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(s_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(e_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
         order_queryset = OrderInfo.objects.filter(
             add_time__range=(s_time, e_time))  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
@@ -498,35 +518,35 @@ class AdminCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         all_num = order_queryset.count()
         success_num = order_queryset.filter(pay_status=1).count()
 
-        user_queryset = UserProfile.objects.filter(level=3)
-        # 总金额
-        total_money = user_queryset.aggregate(
-            total_money=Sum('total_money')).get('total_money', '0')
-        # 可提现
-        ke_money = user_queryset.aggregate(
-            money=Sum('money')).get('money', '0')
-        # 已提现
-        withd_queryset = WithDrawInfo.objects.filter(withdraw_status=1)
-        yi_money = withd_queryset.aggregate(
-            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
-        # 提现中
-        withd_queryset = WithDrawInfo.objects.filter(withdraw_status=0)
-        zhong_money = withd_queryset.aggregate(
-            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # user_queryset = UserProfile.objects.filter(level=3)
+        # # 总金额
+        # total_money = user_queryset.aggregate(
+        #     total_money=Sum('total_money')).get('total_money', '0')
+        # # 可提现
+        # ke_money = user_queryset.aggregate(
+        #     money=Sum('money')).get('money', '0')
+        # # 已提现
+        # withd_queryset = WithDrawInfo.objects.filter(withdraw_status=1)
+        # yi_money = withd_queryset.aggregate(
+        #     withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+        # # 提现中
+        # withd_queryset = WithDrawInfo.objects.filter(withdraw_status=0)
+        # zhong_money = withd_queryset.aggregate(
+        #     withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
 
         # 订单
         resp['all_money'] = all_money
         resp['success_money'] = success_money
         resp['all_num'] = all_num
         resp['success_num'] = success_num
-        # 可提现
-        resp['ke_money'] = ke_money
-        # 已提现
-        resp['yi_money'] = yi_money
-        # 提现中
-        resp['zhong_money'] = zhong_money
-        # 总金额
-        resp['total_money'] = total_money
+        # # 可提现
+        # resp['ke_money'] = ke_money
+        # # 已提现
+        # resp['yi_money'] = yi_money
+        # # 提现中
+        # resp['zhong_money'] = zhong_money
+        # # 总金额
+        # resp['total_money'] = total_money
 
         code = 200
         return Response(data=resp, status=code)
@@ -592,3 +612,127 @@ class AdminADataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
 
         code = 200
         return Response(data=resp, status=code)
+
+
+class AdminCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    permission_classes = (IsAdminUser,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    def get_queryset(self):
+        return UserProfile.objects.filter(level=2).order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return AdminCODataRetrieveSerializer
+        return AdminCODataSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        user = self.get_object()
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        # 处理时间
+        now = datetime.datetime.now()
+        # 今天零点
+        a_time = (now - datetime.timedelta(hours=now.hour, minutes=now.minute))
+        t_time = a_time.strftime('%Y-%m-%d %H:%M')
+        te_time = (a_time + datetime.timedelta(hours=23, minutes=59, seconds=59)).strftime(
+            '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
+        s_time = request.GET.get('start_time', t_time)
+        e_time = request.GET.get('end_time', te_time)
+        print('e_time',s_time,e_time)
+        if not s_time or not e_time:
+            s_time = t_time
+            e_time = te_time
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(s_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(e_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+
+        order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),
+                                                  proxy=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        # 订单
+        resp['success_money'] = success_money
+        resp['all_money'] = all_money
+        resp['success_num'] = success_num
+        resp['all_num'] = all_num
+
+        code = 200
+        return Response(data=resp, status=code)
+
+
+class AdminCUDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    permission_classes = (IsAdminUser,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    def get_queryset(self):
+        return UserProfile.objects.filter(level=3).order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return AdminCODataRetrieveSerializer
+        return AdminCODataSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        user = self.get_object()
+        resp = {}  # ?s_time=2019-4-12&e_time=2019-4-16
+        # 处理时间
+        now = datetime.datetime.now()
+        # 今天零点
+        a_time = (now - datetime.timedelta(hours=now.hour, minutes=now.minute))
+        t_time = a_time.strftime('%Y-%m-%d %H:%M')
+        te_time = (a_time + datetime.timedelta(hours=23, minutes=59, seconds=59)).strftime(
+            '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
+        s_time = request.GET.get('start_time', t_time)
+        e_time = request.GET.get('end_time', te_time)
+        print('e_time',s_time,e_time)
+        if not s_time or not e_time:
+            s_time = t_time
+            e_time = te_time
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(s_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+        if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(e_time)):
+            code = 400
+            resp['msg'] = '时间格式错误'
+            return Response(data=resp, status=code)
+
+        order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),
+                                                  user_id=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        all_money = order_queryset.aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        success_money = order_queryset.filter(pay_status=1).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        all_num = order_queryset.count()
+        success_num = order_queryset.filter(pay_status=1).count()
+
+        # 订单
+        resp['success_money'] = success_money
+        resp['all_money'] = all_money
+        resp['success_num'] = success_num
+        resp['all_num'] = all_num
+
+        code = 200
+        return Response(data=resp, status=code)
+class AdminChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
+    permission_classes = (IsAuthenticated, IsAdminUser)
+    serializer_class = OrderChartListSerializer
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    def get_queryset(self):
+        return OrderInfo.objects.filter(
+            Q(pay_status=1) | Q(pay_status=3),
+            add_time__gte=time.strftime('%Y-%m-%d', time.localtime()),
+        ).order_by('-add_time')

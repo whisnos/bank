@@ -133,20 +133,18 @@ class ProxyUserCreateSerializer(serializers.ModelSerializer):
 class UserOrderListSerializer(serializers.ModelSerializer):
     pay_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M')
     add_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M')
-    # username = serializers.SerializerMethodField(read_only=True)
-    # user_id = serializers.SerializerMethodField(read_only=True)
     total_amount = serializers.FloatField(read_only=True)
     account_num = serializers.CharField(read_only=True)
 
-    # def get_username(self, obj):
-    #     user_queryset = UserProfile.objects.filter(id=obj.user_id)
-    #     if user_queryset:
-    #         return user_queryset[0].username
-    #     return '暂无匹配'
+    rate = serializers.SerializerMethodField()
 
-    # def get_user_id(self, obj):
-    #     return str(obj.user_id)
-
+    def get_rate(self, instance):
+        channelid = instance.channel_id
+        userid = instance.user_id
+        rate_queryset = RateInfo.objects.filter(channel_id=channelid, user_id=userid)
+        if rate_queryset:
+            return rate_queryset[0].rate
+        return '加载中'
     class Meta:
         model = OrderInfo
         # fields = ['id', 'user_id', 'username', 'pay_status', 'total_amount', 'order_no', 'pay_time', 'add_time',
@@ -460,3 +458,13 @@ class UserCountDetailSerializer(serializers.ModelSerializer):
                   'yesterday_success_num', 'yesterday_money_all', 'yesterday_money_success',
                   'month_total_num',
                   'month_success_num', 'month_money_all', 'month_money_success']
+
+
+
+class UserCODataSerializer(serializers.ModelSerializer):
+    # add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    # username = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'username']

@@ -19,7 +19,8 @@ from django.conf.urls import url, include
 from rest_framework.routers import DefaultRouter
 from .views import AdminProxyViewset, AdminuserProxyViewset, AdminChannelViewset, AdminOrderViewset, \
     AdminWithDrawViewset, AdminNoticeViewset, AdminCountViewset, AdminCUserViewset, AdminDeleteViewset, \
-    AdminCDataViewset, GetPayView, AdminADataViewset,AdminWDataViewset
+    AdminCDataViewset, GetPayView, AdminADataViewset, AdminWDataViewset, AdminCODataViewset, AdminChartViewset, \
+    AdminCUDataViewset
 
 route = DefaultRouter()
 route.register(r'proxy', AdminProxyViewset, base_name="admin/proxy")
@@ -34,6 +35,9 @@ route.register(r'delete', AdminDeleteViewset, base_name="admin/delete")
 route.register(r'cdata', AdminCDataViewset, base_name="admin/cdata")
 route.register(r'wdata', AdminWDataViewset, base_name="admin/wdata")
 route.register(r'adata', AdminADataViewset, base_name="admin/adata")
+route.register(r'codata', AdminCODataViewset, base_name="admin/codata")
+route.register(r'admin/cudata', AdminCUDataViewset, base_name="admin/cudata")
+route.register(r'chart', AdminChartViewset, base_name="admin/chart")
 urlpatterns = [
     url(r'^', include(route.urls)),
     url(r'^test/$', GetPayView.as_view(), name="get_pay"),

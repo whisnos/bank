@@ -7,8 +7,9 @@ from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
 from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo
 from spuser.serializers import AdminRateInfoDetailSerializer
-from trade.models import OrderInfo, WithDrawInfo
+from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
 from user.models import UserProfile
+from user.serializers import UserWithDrawBankListSerializer
 
 
 class ProxyUserDetailSerializer(serializers.ModelSerializer):
@@ -36,6 +37,7 @@ class ProxyRateInfoCreateSerializer(serializers.ModelSerializer):
     rate = serializers.DecimalField(max_digits=4, decimal_places=3, required=True)
     channel_id = serializers.IntegerField(required=True)
     user_id = serializers.IntegerField(required=True)
+
     class Meta:
         model = RateInfo
         fields = ['rate', 'channel_id', 'user_id']
@@ -49,6 +51,7 @@ class ProxyRateInfoCreateSerializer(serializers.ModelSerializer):
 
 class ProxyRateInfoDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+
     class Meta:
         model = RateInfo
         fields = '__all__'
@@ -70,10 +73,16 @@ class UpdateRateInfoSerializer(serializers.ModelSerializer):
         fields = ['rate', 'is_map', 'mapid']
 
 
-
-
 class ProxyWithDrawInfoDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    receive_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    user = serializers.CharField(read_only=True)
+    bank = serializers.SerializerMethodField(label='绑定的用户', required=False)
+
+    def get_bank(self, obj):
+        userqueryset = WithDrawBankInfo.objects.filter(id=obj.bank_id)
+        obj = UserWithDrawBankListSerializer(userqueryset[0])
+        return obj.data
 
     class Meta:
         model = WithDrawInfo
@@ -136,6 +145,7 @@ class ProxyReceiveBankInfoDetailSerializer(serializers.ModelSerializer):
 
 class ProxyReceiveBankInfoRetriDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+
     class Meta:
         model = ReceiveBankInfo
         fields = '__all__'
@@ -178,6 +188,7 @@ class ProxyReceiveBankCreDetailSerializer(serializers.ModelSerializer):
         model = ReceiveBankInfo
         fields = ['user', 'username', 'card_number', 'bank_type', 'bank_mark', 'bank_tel', 'card_index', 'device']
 
+
 class ProxyCountDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     rate = serializers.SerializerMethodField()
@@ -200,7 +211,7 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
     hour_total_num = serializers.SerializerMethodField(read_only=True)
 
     def get_hour_total_num(self, obj):
-        print('obj',obj)
+        print('obj', obj)
         a = OrderInfo.objects.filter(user_id=obj.id,
                                      add_time__gte=datetime.datetime.now() - datetime.timedelta(hours=1)).count()
 
@@ -213,7 +224,6 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
         return OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
                                         user_id=obj.id,
                                         add_time__gte=datetime.datetime.now() - datetime.timedelta(hours=1)).count()
-
 
     # 小时总金额
     hour_money_all = serializers.SerializerMethodField(read_only=True)
@@ -258,7 +268,6 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
                                         user_id=obj.id,
                                         add_time__gte=time.strftime('%Y-%m-%d',
                                                                     time.localtime(time.time()))).count()
-
 
     # 今天总金额
     today_money_all = serializers.SerializerMethodField(read_only=True)
@@ -307,7 +316,6 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
                                             (datetime.datetime.now() - datetime.timedelta(days=1)).strftime(
                                                 '%Y-%m-%d'),
                                             time.strftime('%Y-%m-%d', time.localtime(time.time())))).count()
-
 
     # 昨天总金额
     yesterday_money_all = serializers.SerializerMethodField(read_only=True)
@@ -382,9 +390,25 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'username', 'rate','add_time', 'hour_total_num',
+        fields = ['id', 'username', 'rate', 'add_time', 'hour_total_num',
                   'hour_success_num', 'hour_money_all', 'hour_money_success', 'today_total_num',
                   'today_success_num', 'today_money_all', 'today_money_success', 'yesterday_total_num',
                   'yesterday_success_num', 'yesterday_money_all', 'yesterday_money_success',
                   'month_total_num',
                   'month_success_num', 'month_money_all', 'month_money_success']
+
+class ProxyCODataSerializer(serializers.ModelSerializer):
+    # add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    # username = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'username']
+
+
+class ProxyCODataRetrieveSerializer(serializers.ModelSerializer):
+    add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+
+    class Meta:
+        model = UserProfile
+        fields = ['add_time']

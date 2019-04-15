@@ -40,6 +40,23 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
                   'proxy_id', 'user_num', 'device_num_on', 'device_num_all']
 
 
+class AdminCODataSerializer(serializers.ModelSerializer):
+    # add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    # username = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'username']
+
+
+class AdminCODataRetrieveSerializer(serializers.ModelSerializer):
+    add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+
+    class Meta:
+        model = UserProfile
+        fields = ['add_time']
+
+
 class AdminProxyUpdateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(label='密码', required=False, allow_blank=False, min_length=6,
                                      style={'input_type': 'password'}, help_text='密码')
@@ -139,7 +156,7 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     channel = serializers.SerializerMethodField()
     device = serializers.SerializerMethodField()
-    username = serializers.SerializerMethodField()
+    user = serializers.CharField(read_only=True,)
     # pay_status = serializers.SerializerMethodField()
     #
     # def get_pay_status(self, instance):
@@ -155,9 +172,9 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
             return rate_queryset[0].rate
         return '加载中'
 
-    def get_username(self, instance):
-        user_obj = UserProfile.objects.filter(id=instance.proxy)[0]
-        return user_obj.username
+    # def get_username(self, instance):
+    #     user_obj = UserProfile.objects.filter(id=instance.proxy)[0]
+    #     return user_obj.username
 
     def get_device(self, instance):
         device_obj = DeviceInfo.objects.filter(id=instance.device_id)[0]
@@ -173,13 +190,17 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
 
 
 class AdminWithDrawInfoDetailSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(label='绑定的用户', required=False)
+    add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+    # user = serializers.CharField(read_only=True, required=False)
+    proxy_name = serializers.SerializerMethodField(read_only=True)
     bank = serializers.SerializerMethodField(label='绑定的用户', required=False)
-
-    def get_user(self, obj):
-        userqueryset = UserProfile.objects.filter(id=obj.user_id)
-        obj = userqueryset[0].username
-        return obj
+    receive_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+    def get_proxy_name(self, instance):
+        user_q = UserProfile.objects.filter(id=instance.user_id)
+        proxy_q = UserProfile.objects.filter(id=user_q[0].proxy_id)
+        if proxy_q:
+            return proxy_q[0].username
+        return '加载中'
 
     def get_bank(self, obj):
         userqueryset = WithDrawBankInfo.objects.filter(id=obj.bank_id)
@@ -653,27 +674,13 @@ class ReleaseSerializer(serializers.Serializer):
         return attrs
 
 
-class CDataOrderSerializer(serializers.Serializer):
-    s_time = serializers.DateTimeField(write_only=True,required=False)
-    e_time = serializers.DateTimeField(write_only=True,required=False)
-    # success_money=serializers.SerializerMethodField()
-    # def get_success_money(self, instance):
-    #     print('a',instance)
-    #
-    #     return 'a'
-    #
-    # def validate(self, attrs):
-    #     print('attrs',attrs)
-    #     s_time = attrs.get('s_time')
-    #     e_time = attrs.get('e_time')
-    #     if s_time:
-    #         if not re.match(r'(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})', str(s_time)):
-    #             raise serializers.ValidationError('时间格式错误，请重新输入')
-    #     if e_time:
-    #         if not re.match(r'(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})', str(e_time)):
-    #             raise serializers.ValidationError('时间格式错误，请重新输入')
-    #
-    #     return attrs
-    # class Meta:
-    #     model = OrderInfo
-    #     fields = ['success_money']
+class AdminCDataOrderSerializer(serializers.Serializer):
+    pass
+
+
+class OrderChartListSerializer(serializers.ModelSerializer):
+    add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+
+    class Meta:
+        model = OrderInfo
+        fields = ['add_time','real_money','channel']

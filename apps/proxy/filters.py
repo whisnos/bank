@@ -30,16 +30,16 @@ class ProxyUserFilter(filters.FilterSet):
 #         fields = ['order_no', 'order_id', 'start_time', 'end_time', 'userid','deviceid']
 
 
-
 class WithDrawFilter(filters.FilterSet):
     card_number = filters.CharFilter(field_name='withdraw_status', lookup_expr='icontains')
     withdraw_no = filters.CharFilter(field_name="withdraw_no", lookup_expr='icontains', help_text="订单名称模糊查询")
     start_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='gte')
     end_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='lte')
+    userid = filters.NumberFilter(field_name='user')
 
     class Meta:
         model = WithDrawInfo
-        fields = ['withdraw_no', 'withdraw_status', 'start_time', 'end_time']
+        fields = ['withdraw_no', 'withdraw_status', 'start_time', 'end_time', 'userid']
 
 
 class DeviceFilter(filters.FilterSet):
@@ -57,6 +57,7 @@ class ReceiveBankFilter(filters.FilterSet):
     class Meta:
         model = ReceiveBankInfo
         fields = ['card_number', 'bank_type']
+
 
 class WithDrawBankFilter(filters.FilterSet):
     card_number = filters.CharFilter(field_name='card_number', lookup_expr='icontains')

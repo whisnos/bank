@@ -18,7 +18,7 @@ class OrderInfo(models.Model):
     pay_status = models.IntegerField(default=0, choices=PAY_STATUS, verbose_name='订单状态')
     order_money = models.DecimalField(verbose_name='订单金额', max_digits=7, decimal_places=2)
     real_money = models.DecimalField(verbose_name='实际金额', max_digits=7, decimal_places=2)
-    order_no = models.CharField(max_length=100, unique=True, verbose_name='网站订单号')
+    order_no = models.CharField(max_length=100, unique=True, null=True, blank=True,verbose_name='网站订单号')
     order_id = models.CharField(max_length=100, null=True, blank=True, verbose_name='商户订单号')
     remark = models.CharField(max_length=200, null=True, blank=True, verbose_name='用户留言')
     add_time = models.DateTimeField(default=datetime.now, verbose_name='创建时间')
@@ -31,6 +31,7 @@ class OrderInfo(models.Model):
     proxy = models.IntegerField(null=True, blank=True, verbose_name='代理')
     pay_url = models.CharField(max_length=300, null=True, blank=True, verbose_name='支付链接')
     device = models.ForeignKey(DeviceInfo,on_delete=models.CASCADE, null=True, blank=True,verbose_name='设备')
+    account_num = models.CharField(max_length=32, null=True, blank=True, verbose_name='银行卡号')
     def __str__(self):
         return str(self.order_no)
 
@@ -59,7 +60,7 @@ class WithDrawBankInfo(models.Model):
 class WithDrawInfo(models.Model):
     withdraw_no = models.CharField(max_length=50, unique=True, verbose_name='提现单号', null=True, blank=True)
     withdraw_status = models.IntegerField(
-        choices=((0, '处理中'), (1, '已处理')),
+        choices=((0, '处理中'), (1, '已处理'), (2, '已处理')),
         default=0, verbose_name='提现状态')
     withdraw_money = models.DecimalField(max_digits=9, decimal_places=2, verbose_name='提现金额')
     remark = models.CharField(max_length=200, null=True, blank=True, verbose_name='用户留言')
