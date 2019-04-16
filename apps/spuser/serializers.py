@@ -122,7 +122,11 @@ class AdminUpdateUserSerializer(serializers.ModelSerializer):
                                       style={'input_type': 'password'}, )
     password = serializers.CharField(write_only=True, required=False, min_length=6,
                                      style={'input_type': 'password'}, help_text='密码')
-
+    add_money = serializers.DecimalField(max_digits=7, decimal_places=2, help_text='加款', write_only=True,
+                                         required=False)
+    desc_money = serializers.DecimalField(max_digits=7, decimal_places=2, help_text='扣款', write_only=True,
+                                          required=False)
+    remark = serializers.CharField(write_only=True,required=False)
     def validate(self, attrs):
         if str(attrs.get('is_active')) not in ['True', 'False', 'None']:
             raise serializers.ValidationError('传值错误')
@@ -130,7 +134,7 @@ class AdminUpdateUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['is_active', 'auth_code', 'password', 'password2']
+        fields = ['is_active', 'auth_code', 'password', 'password2','add_money','desc_money','remark']
         # fields = '__all__'
 
 
@@ -156,7 +160,7 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     channel = serializers.SerializerMethodField()
     device = serializers.SerializerMethodField()
-    user = serializers.CharField(read_only=True,)
+    user = serializers.CharField(read_only=True, )
     # pay_status = serializers.SerializerMethodField()
     #
     # def get_pay_status(self, instance):
@@ -195,6 +199,7 @@ class AdminWithDrawInfoDetailSerializer(serializers.ModelSerializer):
     proxy_name = serializers.SerializerMethodField(read_only=True)
     bank = serializers.SerializerMethodField(label='绑定的用户', required=False)
     receive_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+
     def get_proxy_name(self, instance):
         user_q = UserProfile.objects.filter(id=instance.user_id)
         proxy_q = UserProfile.objects.filter(id=user_q[0].proxy_id)
@@ -442,6 +447,7 @@ class AdminCUserDetailSerializer(serializers.ModelSerializer):
     proxy_name = serializers.SerializerMethodField(read_only=True)
 
     def get_proxy_name(self, instance):
+        # self.is_valid(raise_exception=True)
         proxy_q = UserProfile.objects.filter(id=instance.proxy_id)
         if proxy_q:
             return proxy_q[0].username
@@ -653,6 +659,14 @@ class AdminCUserDetailSerializer(serializers.ModelSerializer):
                   'month_success_num', 'month_money_all', 'month_money_success']
 
 
+class AdminCCRetrieveSerializer(serializers.ModelSerializer):
+    channelid = serializers.IntegerField(write_only=True,required=False)
+    userid = serializers.IntegerField(write_only=True,required=False)
+    class Meta:
+        model = UserProfile
+        fields = ['userid', 'channelid']
+
+
 class ReleaseSerializer(serializers.Serializer):
     s_time = serializers.DateTimeField(write_only=True)
     e_time = serializers.DateTimeField(write_only=True)
@@ -683,4 +697,4 @@ class OrderChartListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderInfo
-        fields = ['add_time','real_money','channel']
+        fields = ['add_time', 'real_money', 'channel']

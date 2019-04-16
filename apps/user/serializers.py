@@ -51,10 +51,10 @@ class UpdateUserInfoSerializer(serializers.ModelSerializer):
                                          required=False)
     desc_money = serializers.DecimalField(max_digits=7, decimal_places=2, help_text='扣款', write_only=True,
                                           required=False)
-
+    remark = serializers.CharField(write_only=True,required=False)
     class Meta:
         model = UserProfile
-        fields = ['auth_code', 'password', 'password2', 'web_url', 'add_money', 'desc_money']
+        fields = ['auth_code', 'password', 'password2', 'web_url', 'add_money', 'desc_money','remark']
 
 
 class UpdateOnlyUserInfoSerializer(serializers.ModelSerializer):

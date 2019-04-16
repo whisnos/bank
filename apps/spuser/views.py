@@ -17,6 +17,7 @@ from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
 from channel.models import channelInfo
 from proxy.filters import WithDrawFilter
+from proxy.models import RateInfo
 from proxy.views import UserListPagination
 from spuser.filters import AdminProxyFilter, AdminOrderFilter, AdminChannelFilter
 from spuser.models import NoticeInfo, LogInfo
@@ -24,7 +25,8 @@ from spuser.serializers import AdminUserDetailSerializer, AdminProxyCreateSerial
     AdminUpdateUserSerializer, AdminChannelDetailSerializer, AdminChannelCreateSerializer, AdminOrderDetailSerializer, \
     AdminWithDrawInfoDetailSerializer, AdminNoticeInfoDetailSerializer, AdminProxyUpdateSerializer, \
     AdminCountDetailSerializer, AdminCUserDetailSerializer, ReleaseSerializer, \
-    AdminCODataSerializer, AdminCODataRetrieveSerializer, AdminCDataOrderSerializer, OrderChartListSerializer
+    AdminCODataSerializer, AdminCODataRetrieveSerializer, AdminCDataOrderSerializer, OrderChartListSerializer, \
+    AdminCCRetrieveSerializer, AdminRateInfoDetailSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from utils.make_code import make_uuid_code, make_auth_code, make_md5
@@ -160,41 +162,76 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         user = self.get_object()
         resp = {'msg': []}
         code = 200
-        if admin_user.is_superuser:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            password = self.request.data.get('password', '')
-            password2 = self.request.data.get('password2', '')
-            auth_code = self.request.data.get('auth_code', '')
-            safe_code = self.request.data.get('safe_code', '')
-            safe_code2 = self.request.data.get('safe_code2', '')
-            is_active = serializer.validated_data.get('is_active', '')
-            if password:
-                if password == password2:
-                    user.set_password(password)
-                elif password != password2:
-                    code = 400
-            if auth_code:
-                user.auth_code = make_auth_code()
-            if safe_code == safe_code2:
-                if safe_code:
-                    print('admin修改 商户 操作密码中..........')
-                    safe_code = make_md5(safe_code)
-                    user.safe_code = safe_code
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        password = self.request.data.get('password', '')
+        password2 = self.request.data.get('password2', '')
+        auth_code = self.request.data.get('auth_code', '')
+        safe_code = self.request.data.get('safe_code', '')
+        safe_code2 = self.request.data.get('safe_code2', '')
+        add_money = serializer.validated_data.get('add_money')
+        desc_money = serializer.validated_data.get('desc_money')
+        remark = serializer.validated_data.get('remark')
+        is_active = serializer.validated_data.get('is_active', '')
+        proxy_q = UserProfile.objects.filter(id=user.proxy_id)
+        if not proxy_q:
+            code = 400
+            resp['msg'] = '对应代理不存在'
+            return Response(data=resp, status=code)
+        proxy_user = proxy_q[0]
+        if add_money:
+            user.total_money = '%.2f' % (user.total_money + add_money)
+            user.money = '%.2f' % (user.money + add_money)
+            # # 加日志
+            # if not ramark_info:
+            #     ramark_info = '无备注！'
+            # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
+            #     user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(ramark_info)
+            # log.add_logs('3', content, self.request.user.id)
+            # 更新代理余额
+            proxy_user.total_money = '%.2f' % (proxy_user.total_money + add_money)
+            proxy_user.money = '%.2f' % (proxy_user.money + add_money)
+            proxy_user.save()
+        if desc_money:
+            if desc_money <= user.total_money and proxy_user.total_money >= desc_money:
+                user.total_money = '%.2f' % (user.total_money - desc_money)
+                user.money = '%.2f' % (user.money - desc_money)
+                # # 加日志
+                # if not ramark_info:
+                #     ramark_info = '无备注！'
+                # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
+                #     user.username) + ' 扣款 ' + ' 金额 ' + str(minus_money) + ' 元。' + ' 备注：' + str(ramark_info)
+                # log.add_logs('3', content, self.request.user.id)
+                # 更新代理余额
+                proxy_user.total_money = '%.2f' % (proxy_user.total_money - desc_money)
+                proxy_user.money = '%.2f' % (proxy_user.money - desc_money)
+                proxy_user.save()
             else:
                 code = 400
-            if str(is_active):
-                if is_active:
-                    user.is_active = is_active
-                if is_active == False:
-                    user.is_active = is_active
-            user.save()
-            serializer = AdminUserDetailSerializer(user)
-            return Response(data=serializer.data, status=code)
+                resp['msg'] = '对应代理不存在'
+                return Response(data=resp, status=code)
+        if password:
+            if password == password2:
+                user.set_password(password)
+            elif password != password2:
+                code = 400
+        if auth_code:
+            user.auth_code = make_auth_code()
+        if safe_code == safe_code2:
+            if safe_code:
+                print('admin修改 商户 操作密码中..........')
+                safe_code = make_md5(safe_code)
+                user.safe_code = safe_code
         else:
-            code = 403
-            resp['msg'] = '没有操作权限'
-            return Response(data=resp, status=code)
+            code = 400
+        if str(is_active):
+            if is_active:
+                user.is_active = is_active
+            if is_active == False:
+                user.is_active = is_active
+        user.save()
+        serializer = AdminUserDetailSerializer(user)
+        return Response(data=serializer.data, status=code)
 
 
 class AdminChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.CreateModelMixin,
@@ -395,6 +432,162 @@ class AdminCUserViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.R
     def get_serializer_class(self):
         return AdminCUserDetailSerializer
 
+    # def list(self, request, *args, **kwargs):
+    #     resp = {}
+    #     obj=self.get_object()
+    #     channelid=request.GET.get('channelid','')
+    #     proxy_q = UserProfile.objects.filter(id=obj.proxy_id)
+    #     resp['proxy_name']=proxy_q[0].username
+    #
+    #     resp['hour_total_num'] = OrderInfo.objects.filter(user_id=obj.id,
+    #                                      add_time__gte=datetime.datetime.now() - datetime.timedelta(hours=1)).count()
+    #     return Response(data=resp, status=200)
+
+
+class AdminCUserCCViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                          mixins.UpdateModelMixin):
+    permission_classes = [IsAdminUser, ]
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = AdminProxyFilter
+
+    def get_queryset(self):
+        return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return AdminCCRetrieveSerializer
+        return AdminCUserDetailSerializer
+
+    # def list(self, request, *args, **kwargs):
+    #     # obj = self.get_object()
+    #     channelid = request.GET.get('channelid')
+    #     print('channelid', channelid)
+    #
+    #     return Response(data='1',status=200)
+
+    def update(self, request, *args, **kwargs):
+        resp = {}
+        obj = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        channelid = serializer.validated_data.get('channelid')
+        print('channelid', channelid)
+        proxy_q = UserProfile.objects.filter(id=obj.proxy_id)
+        resp['proxy_name'] = proxy_q[0].username
+        rate_queryset = RateInfo.objects.filter(user_id=obj.id)
+        rate_list = []
+        if rate_queryset:
+            for r in rate_queryset:
+                if r.is_map:
+                    s = AdminRateInfoDetailSerializer(r)
+                    rate_list.append(s.data)
+                else:
+                    s = AdminRateInfoDetailSerializer(r)
+                    rate_list.append(s.data)
+        resp['rate'] = rate_list
+
+        # UserProfile.objects.filter(proxy_id=instance.id).count()
+        resp['hour_total_num'] = OrderInfo.objects.filter(user_id=obj.id,
+                                                          add_time__gte=datetime.datetime.now() - datetime.timedelta(
+                                                              hours=1), channel_id=channelid).count()
+        resp['hour_success_num'] = OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
+                                                            proxy=obj.id,
+                                                            add_time__gte=datetime.datetime.now() - datetime.timedelta(
+                                                                hours=1), channel_id=channelid).count()
+        resp['hour_money_all'] = OrderInfo.objects.filter(user_id=obj.id,
+                                                          add_time__gte=datetime.datetime.now() - datetime.timedelta(
+                                                              hours=1), channel_id=channelid).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        resp['hour_money_success'] = OrderInfo.objects.filter(
+            (Q(pay_status=1) | Q(pay_status=3)), user_id=obj.id,
+            add_time__gte=datetime.datetime.now() - datetime.timedelta(hours=1), channel_id=channelid).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        # 今天
+        resp['today_total_num'] = OrderInfo.objects.filter(user_id=obj.id,
+                                                           add_time__gte=time.strftime('%Y-%m-%d',
+                                                                                       time.localtime(time.time())),
+                                                           channel_id=channelid).count()
+        resp['today_success_num'] = OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
+                                                             user_id=obj.id,
+                                                             add_time__gte=time.strftime('%Y-%m-%d',
+                                                                                         time.localtime(time.time())),
+                                                             channel_id=channelid).count()
+        resp['today_money_all'] = OrderInfo.objects.filter(user_id=obj.id,
+                                                           add_time__gte=time.strftime('%Y-%m-%d',
+                                                                                       time.localtime(
+                                                                                           time.time())),
+                                                           channel_id=channelid).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        resp['today_money_success'] = OrderInfo.objects.filter(
+            (Q(pay_status=1) | Q(pay_status=3)), user_id=obj.id,
+            add_time__gte=time.strftime('%Y-%m-%d', time.localtime(time.time())), channel_id=channelid).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        # 昨天
+        resp['yesterday_total_num'] = OrderInfo.objects.filter(user_id=obj.id,
+                                                               add_time__gte=(
+                                                                       datetime.datetime.now() - datetime.timedelta(
+                                                                   days=1)).strftime(
+                                                                   '%Y-%m-%d'),
+                                                               add_time__lte=time.strftime('%Y-%m-%d',
+                                                                                           time.localtime(
+                                                                                               time.time())),
+                                                               channel_id=channelid).count()
+
+        # 昨天 成功数
+        resp['yesterday_success_num'] = OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
+                                                                 user_id=obj.id,
+                                                                 add_time__range=(
+                                                                     (datetime.datetime.now() - datetime.timedelta(
+                                                                         days=1)).strftime(
+                                                                         '%Y-%m-%d'),
+                                                                     time.strftime('%Y-%m-%d', time.localtime(
+                                                                         time.time()))), channel_id=channelid).count()
+
+        # 昨天总金额
+        resp['yesterday_money_all'] = OrderInfo.objects.filter(user_id=obj.id,
+                                                               add_time__range=(
+                                                                   (datetime.datetime.now() - datetime.timedelta(
+                                                                       days=1)).strftime(
+                                                                       '%Y-%m-%d'),
+                                                                   time.strftime('%Y-%m-%d',
+                                                                                 time.localtime(
+                                                                                     time.time()))),
+                                                               channel_id=channelid).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        # 昨天成功金额
+        resp['yesterday_money_success'] = OrderInfo.objects.filter(
+            (Q(pay_status=1) | Q(pay_status=3)), user_id=obj.id,
+            add_time__range=((datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d'),
+                             time.strftime('%Y-%m-%d', time.localtime(time.time()))), channel_id=channelid).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+
+        # 当月
+        resp['month_total_num'] = OrderInfo.objects.filter(user_id=obj.id,
+                                                           add_time__gte=datetime.datetime.now() - datetime.timedelta(
+                                                               days=30), channel_id=channelid).count()
+
+        # 当月 成功数
+        resp['month_success_num'] = OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
+                                                             user_id=obj.id,
+                                                             add_time__gte=datetime.datetime.now() - datetime.timedelta(
+                                                                 days=30), channel_id=channelid).count()
+
+        #
+        # 当月总金额
+        resp['month_money_all'] = OrderInfo.objects.filter(user_id=obj.id,
+                                                           add_time__gte=(datetime.datetime.now() - datetime.timedelta(
+                                                               days=30)), channel_id=channelid).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+
+        # 当月成功金额
+        resp['month_money_success'] = OrderInfo.objects.filter(
+            (Q(pay_status=1) | Q(pay_status=3)), user_id=obj.id,
+            add_time__gte=datetime.datetime.now() - datetime.timedelta(days=30), channel_id=channelid).aggregate(
+            real_money=Sum('real_money')).get('real_money', '0')
+        return Response(data=resp, status=200)
+
 
 class AdminDeleteViewset(mixins.DestroyModelMixin, viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = (IsAdminUser,)
@@ -493,14 +686,15 @@ class AdminCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         now = datetime.datetime.now()
         # 今天零点
         a_time = (now - datetime.timedelta(hours=now.hour, minutes=now.minute))
-        t_time=a_time.strftime('%Y-%m-%d %H:%M')
-        te_time = (a_time + datetime.timedelta(hours=23, minutes=59, seconds=59)).strftime('%Y-%m-%d %H:%M') # .strftime('%Y-%m-%d %H:%M')
+        t_time = a_time.strftime('%Y-%m-%d %H:%M')
+        te_time = (a_time + datetime.timedelta(hours=23, minutes=59, seconds=59)).strftime(
+            '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
         s_time = request.GET.get('start_time', t_time)
         e_time = request.GET.get('end_time', te_time)
         if not s_time or not e_time:
             s_time = t_time
             e_time = te_time
-        print('t_time',t_time,te_time)
+        print('t_time', t_time, te_time)
         if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(s_time)):
             code = 400
             resp['msg'] = '时间格式错误'
@@ -513,10 +707,10 @@ class AdminCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             add_time__range=(s_time, e_time))  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
-        success_money = order_queryset.filter(pay_status=1).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(pay_status=1).count()
+        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
 
         # user_queryset = UserProfile.objects.filter(level=3)
         # # 总金额
@@ -599,10 +793,10 @@ class AdminADataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         order_queryset = OrderInfo.objects.all()  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
-        success_money = order_queryset.filter(pay_status=1).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(pay_status=1).count()
+        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
 
         # 订单
         resp['success_money'] = success_money
@@ -639,7 +833,7 @@ class AdminCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
         s_time = request.GET.get('start_time', t_time)
         e_time = request.GET.get('end_time', te_time)
-        print('e_time',s_time,e_time)
+        print('e_time', s_time, e_time)
         if not s_time or not e_time:
             s_time = t_time
             e_time = te_time
@@ -656,10 +850,10 @@ class AdminCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
                                                   proxy=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
-        success_money = order_queryset.filter(pay_status=1).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(pay_status=1).count()
+        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
 
         # 订单
         resp['success_money'] = success_money
@@ -696,7 +890,7 @@ class AdminCUDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
         s_time = request.GET.get('start_time', t_time)
         e_time = request.GET.get('end_time', te_time)
-        print('e_time',s_time,e_time)
+        print('e_time', s_time, e_time)
         if not s_time or not e_time:
             s_time = t_time
             e_time = te_time
@@ -713,10 +907,10 @@ class AdminCUDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
                                                   user_id=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
-        success_money = order_queryset.filter(pay_status=1).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(pay_status=1).count()
+        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
 
         # 订单
         resp['success_money'] = success_money
@@ -726,11 +920,14 @@ class AdminCUDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
 
         code = 200
         return Response(data=resp, status=code)
+
+
 class AdminChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
     permission_classes = (IsAuthenticated, IsAdminUser)
     serializer_class = OrderChartListSerializer
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
+
     def get_queryset(self):
         return OrderInfo.objects.filter(
             Q(pay_status=1) | Q(pay_status=3),

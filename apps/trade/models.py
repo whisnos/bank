@@ -32,6 +32,7 @@ class OrderInfo(models.Model):
     pay_url = models.CharField(max_length=300, null=True, blank=True, verbose_name='支付链接')
     device = models.ForeignKey(DeviceInfo,on_delete=models.CASCADE, null=True, blank=True,verbose_name='设备')
     account_num = models.CharField(max_length=32, null=True, blank=True, verbose_name='银行卡号')
+    notify_url = models.CharField(max_length=100, null=True, blank=True, verbose_name='商户回调url')
     def __str__(self):
         return str(self.order_no)
 
