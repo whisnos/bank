@@ -2,6 +2,7 @@ from rest_framework import permissions
 
 
 # from user.models import OperateLog
+from spuser.models import LogInfo
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -38,14 +39,14 @@ def jwt_response_payload_handler(token, user=None, request=None):
     }
 
 
-# class MakeLogs(object):
-#     def add_logs(self,operate_type,content,user_id):
-#         log_obj = OperateLog()
-#         log_obj.operate_type = operate_type
-#         log_obj.content = content
-#         log_obj.user_id = user_id
-#         log_obj.save()
-#         return True
+class MakeLogs(object):
+    def add_logs(self,log_type,content,user_id):
+        log_obj = LogInfo()
+        log_obj.log_type = log_type
+        log_obj.content = content
+        log_obj.user_id = user_id
+        log_obj.save()
+        return True
 class IsProxyOnly(permissions.BasePermission):
     """
     Object-level permission to only allow owners of an object to edit it.

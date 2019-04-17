@@ -18,7 +18,7 @@ from django.conf.urls import url, include
 
 from rest_framework.routers import DefaultRouter
 from .views import UserInfoViewset, UserOrderViewset, UserWithDrawViewset, UserWithDrawBankViewset, UserCountViewset, \
-    UserCDataViewset, UserADataViewset, UserWDataViewset, UserCODataViewset, UserChartViewset
+    UserCDataViewset, UserADataViewset, UserWDataViewset, UserCODataViewset, UserChartViewset, UserLogsViewset
 
 route = DefaultRouter()
 route.register(r'info', UserInfoViewset, base_name="info")
@@ -31,6 +31,7 @@ route.register(r'wdata', UserWDataViewset, base_name="wdata")
 route.register(r'adata', UserADataViewset, base_name="adata")
 route.register(r'codata', UserCODataViewset, base_name="codata")
 route.register(r'chart', UserChartViewset, base_name="chart")
+route.register(r'logs', UserLogsViewset, base_name="logs")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

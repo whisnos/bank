@@ -20,7 +20,7 @@ class RateInfo(models.Model):
     is_map = models.BooleanField(default=False, verbose_name='是否映射')
     mapid = models.IntegerField(null=True, blank=True, verbose_name='映射id')
     add_time = models.DateTimeField(default=datetime.now, verbose_name='创建时间')
-
+    is_active = models.BooleanField(default=True, verbose_name='是否激活')
     def __str__(self):
         return str(self.id)
 
@@ -43,6 +43,7 @@ class DeviceInfo(models.Model):
 
     def __str__(self):
         return self.device_name
+
 
 
 class ReceiveBankInfo(models.Model):
@@ -79,4 +80,16 @@ class ReceiveBankInfo(models.Model):
 
     class Meta:
         verbose_name = '收款管理'
+        verbose_name_plural = verbose_name
+
+class DeviceChannelInfo(models.Model):
+    device = models.ForeignKey(DeviceInfo,on_delete=models.CASCADE)
+    channel = models.ForeignKey(channelInfo,on_delete=models.CASCADE)
+    add_time = models.DateTimeField(default=datetime.now, verbose_name='创建时间')
+    is_active = models.BooleanField(default=True)
+    def __str__(self):
+        return self.id
+
+    class Meta:
+        verbose_name = '设备通道表'
         verbose_name_plural = verbose_name

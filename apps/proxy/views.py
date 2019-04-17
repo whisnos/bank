@@ -7,8 +7,10 @@ from decimal import Decimal
 import requests
 from django.db.models import Sum, Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, mixins
+from drf_renderer_xlsx.renderers import XLSXRenderer
+from rest_framework import viewsets, mixins, renderers
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.filters import SearchFilter
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -23,14 +25,16 @@ from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSeri
     ProxyWithDrawInfoCreSerializer, ProxyReceiveBankInfoDetailSerializer, ProxyReceiveBankCreDetailSerializer, \
     ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer, ProxyCountDetailSerializer, \
     ProxyCODataRetrieveSerializer, ProxyCODataSerializer, CallBackOrderUpdateSeralizer, ProxyDChannelDetailSerializer
-from spuser.filters import AdminOrderFilter, AdminProxyFilter
-from spuser.serializers import AdminOrderDetailSerializer, OrderChartListSerializer
+from spuser.filters import AdminOrderFilter, AdminProxyFilter, LogFilter
+from spuser.models import LogInfo
+from spuser.serializers import AdminOrderDetailSerializer, OrderChartListSerializer, AdminLogListInfoSerializer, \
+    AdminLogInfoSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from user.serializers import UpdateUserInfoSerializer, ProxyUserCreateSerializer
 
 from utils.make_code import make_auth_code, make_uuid_code
-from utils.permissions import IsProxyOnly
+from utils.permissions import IsProxyOnly, MakeLogs
 
 
 class UserListPagination(PageNumberPagination):
@@ -88,16 +92,17 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         remark=serializer.validated_data.get('remark')
         web_url = self.request.data.get('web_url')
         user = self.get_object()
+        log = MakeLogs()
         # 代理 修改 商户
         if add_money:
             user.total_money = '%.2f' % (user.total_money + add_money)
             user.money = '%.2f' % (user.money + add_money)
-            # # 加日志
-            # if not ramark_info:
-            #     ramark_info = '无备注！'
-            # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
-            #     user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(ramark_info)
-            # log.add_logs('3', content, self.request.user.id)
+            # 加日志
+            if not remark:
+                remark = '无备注！'
+            content = '用户：' + str(proxy_user.username) + ' 对 ' + str(
+                user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(remark)
+            log.add_logs('3', content, proxy_user.id)
             # 更新代理余额
             proxy_user.total_money = '%.2f' % (proxy_user.total_money + add_money)
             proxy_user.money = '%.2f' % (proxy_user.money + add_money)
@@ -106,12 +111,12 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
             if desc_money <= user.total_money and proxy_user.total_money >= desc_money:
                 user.total_money = '%.2f' % (user.total_money - desc_money)
                 user.money = '%.2f' % (user.money - desc_money)
-                # # 加日志
-                # if not ramark_info:
-                #     ramark_info = '无备注！'
-                # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
-                #     user.username) + ' 扣款 ' + ' 金额 ' + str(minus_money) + ' 元。' + ' 备注：' + str(ramark_info)
-                # log.add_logs('3', content, self.request.user.id)
+                # 加日志
+                if not remark:
+                    remark = '无备注！'
+                content = '用户：' + str(proxy_user.username) + ' 对 ' + str(
+                    user.username) + ' 扣款 ' + ' 金额 ' + str(desc_money) + ' 元。' + ' 备注：' + str(remark)
+                log.add_logs('3', content, proxy_user.id)
                 # 更新代理余额
                 proxy_user.total_money = '%.2f' % (proxy_user.total_money - desc_money)
                 proxy_user.money = '%.2f' % (proxy_user.money - desc_money)
@@ -218,7 +223,29 @@ class ProxyOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
     filter_class = AdminOrderFilter
-
+    renderer_classes = (renderers.JSONRenderer, XLSXRenderer, renderers.BrowsableAPIRenderer)
+    column_header = {
+        'titles': [
+            "订单id",
+            "创建时间",
+            "通道名称",
+            "设备名称",
+            "用户名",
+            "费率",
+            "支付状态",
+            "订单金额",
+            "实际金额",
+            "订单号",
+            "商户订单号",
+            "备注",
+            "支付时间",
+            "商品名称",
+            "所属代理",
+            "支付url",
+            "收款账号",
+            "notify_url",
+        ]
+    }
 
     def get_queryset(self):
         return OrderInfo.objects.filter(proxy=self.request.user.id).order_by('-add_time')  # .order_by('-add_time')
@@ -282,10 +309,6 @@ class ProxyDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.
     filter_backends = (DjangoFilterBackend,)
     filter_class = DeviceFilter
 
-    # def make_userlist(self):
-    #     user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
-    #     return user_list
-
     def get_queryset(self):
         return DeviceInfo.objects.filter(user_id=self.request.user.id).order_by('-add_time')  # .order_by('-add_time')
 
@@ -335,13 +358,8 @@ class ProxyRealDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
         device_q=DeviceInfo.objects.filter(user_id=self.request.user.id)
         did_list=[d.id for d in device_q]
         return DeviceChannelInfo.objects.filter(device_id__in=did_list).order_by('-add_time')
-        # return DeviceInfo.objects.filter(user_id=self.request.user.id).order_by('-add_time')  # .order_by('-add_time')
 
     def get_serializer_class(self):
-        # if self.action == 'update':
-        #     return ProxyDeviceUpdateDetailSerializer
-        # elif self.action == 'create':
-        #     return ProxyWithDrawInfoCreSerializer
         return ProxyDChannelDetailSerializer
 
 class ProxyReceiveBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
@@ -349,9 +367,9 @@ class ProxyReceiveBankViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mi
     permission_classes = (IsAuthenticated,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
-    filter_backends = (DjangoFilterBackend,)
+    filter_backends = (DjangoFilterBackend,SearchFilter)
     filter_class = ReceiveBankFilter
-
+    search_fields = ('username', 'card_number')
     def get_queryset(self):
         return ReceiveBankInfo.objects.filter(user_id=self.request.user.id).order_by(
             '-add_time')  # .order_by('-add_time')
@@ -818,3 +836,21 @@ class ProxyCallBackViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         code = 400
         resp['msg'] = '操作状态不对'
         return Response(data=resp, status=code)
+
+class ProxyLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    permission_classes = (IsAuthenticated,IsProxyOnly )
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = LogFilter
+
+    def get_queryset(self):
+       u_list=[u.id for u in UserProfile.objects.filter(proxy_id=self.request.user.id)]
+       return LogInfo.objects.filter(user_id__in=u_list).order_by('-add_time')
+
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AdminLogListInfoSerializer
+        else:
+            return AdminLogInfoSerializer

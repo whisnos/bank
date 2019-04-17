@@ -97,9 +97,24 @@ class ProxyWithDrawInfoUpdateDetailSerializer(serializers.ModelSerializer):
         model = WithDrawInfo
         fields = ['withdraw_status', 'remark']
 
+class ProxyDChannelDetailSerializer(serializers.ModelSerializer):
+    add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    channel=serializers.CharField()
+    class Meta:
+        model = DeviceChannelInfo
+        fields = '__all__'
 
 class ProxyDeviceInfoDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    channel=serializers.SerializerMethodField()
+    password=serializers.CharField(read_only=True)
+    def get_channel(self, instance):
+        a=[]
+        device_q=DeviceChannelInfo.objects.filter(device_id=instance.id).order_by('-add_time')
+        for d in device_q:
+            serializer=ProxyDChannelDetailSerializer(d)
+            a.append(serializer.data)
+        return a
     # 小时 datetime.datetime.now()-datetime.timedelta(hours=1)
     hour_total_num = serializers.SerializerMethodField(read_only=True)
     def get_hour_total_num(self, obj):
@@ -259,7 +274,7 @@ class ProxyDeviceInfoDetailSerializer(serializers.ModelSerializer):
         return order_queryset.get('real_money', 0)
     class Meta:
         model = DeviceInfo
-        fields = ['id', 'device_name','is_active','add_time', 'hour_total_num',
+        fields = ['id', 'device_name','password','channel','is_active','add_time', 'hour_total_num',
                   'hour_success_num', 'hour_money_all', 'hour_money_success', 'today_total_num',
                   'today_success_num', 'today_money_all', 'today_money_success', 'yesterday_total_num',
                   'yesterday_success_num', 'yesterday_money_all', 'yesterday_money_success',
@@ -298,7 +313,12 @@ class ProxyWithDrawInfoCreSerializer(serializers.ModelSerializer):
 
 class ProxyReceiveBankInfoDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
-
+    device_name = serializers.SerializerMethodField(read_only=True)
+    def get_device_name(self, instance):
+        obj_q=DeviceInfo.objects.filter(id=instance.device)
+        if not obj_q:
+            return '暂无匹配设备'
+        return obj_q[0].device_name
     class Meta:
         model = ReceiveBankInfo
         fields = '__all__'
@@ -306,7 +326,13 @@ class ProxyReceiveBankInfoDetailSerializer(serializers.ModelSerializer):
 
 class ProxyReceiveBankInfoRetriDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    device_name = serializers.SerializerMethodField(read_only=True)
 
+    def get_device_name(self, instance):
+        obj_q = DeviceInfo.objects.filter(id=instance.device)
+        if not obj_q:
+            return '暂无匹配设备'
+        return obj_q[0].device_name
     class Meta:
         model = ReceiveBankInfo
         fields = '__all__'
@@ -550,7 +576,8 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'username', 'rate', 'add_time', 'hour_total_num',
+        fields = ['id', 'username', 'level', 'uid', 'auth_code', 'money', 'is_active', 'mobile', 'web_url',
+                  'proxy_id','rate', 'add_time', 'hour_total_num',
                   'hour_success_num', 'hour_money_all', 'hour_money_success', 'today_total_num',
                   'today_success_num', 'today_money_all', 'today_money_success', 'yesterday_total_num',
                   'yesterday_success_num', 'yesterday_money_all', 'yesterday_money_success',
@@ -609,9 +636,3 @@ class CallBackOrderUpdateSeralizer(serializers.ModelSerializer):
         model = OrderInfo
         fields = ['pay_status']
 
-class ProxyDChannelDetailSerializer(serializers.ModelSerializer):
-    add_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
-    channel=serializers.CharField()
-    class Meta:
-        model = DeviceChannelInfo
-        fields = '__all__'

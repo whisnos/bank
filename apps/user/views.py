@@ -9,7 +9,8 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, mixins, views
+from drf_renderer_xlsx.renderers import XLSXRenderer
+from rest_framework import viewsets, mixins, views, renderers
 # Create your views here.
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -20,8 +21,9 @@ from bank.settings import CLOSE_TIME, FONT_DOMAIN
 from proxy.filters import WithDrawFilter, WithDrawBankFilter
 from proxy.models import ReceiveBankInfo, DeviceInfo
 from proxy.views import UserListPagination
-from spuser.filters import AdminOrderFilter, AdminProxyFilter
-from spuser.serializers import OrderChartListSerializer
+from spuser.filters import AdminOrderFilter, AdminProxyFilter, LogFilter
+from spuser.models import LogInfo
+from spuser.serializers import OrderChartListSerializer, AdminLogListInfoSerializer, AdminLogInfoSerializer
 from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
 from user.models import UserProfile
 from user.serializers import UserDetailSerializer, UserOrderListSerializer, \
@@ -30,7 +32,7 @@ from user.serializers import UserDetailSerializer, UserOrderListSerializer, \
     UserCODataSerializer
 from utils.make_code import make_auth_code, make_md5, generate_order_no, make_short_code
 from utils.pay import MakePay
-from utils.permissions import IsUserOnly
+from utils.permissions import IsUserOnly, MakeLogs
 
 
 class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
@@ -92,7 +94,30 @@ class UserOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Re
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
     filter_class = AdminOrderFilter
+    renderer_classes = (renderers.JSONRenderer, XLSXRenderer, renderers.BrowsableAPIRenderer)
+    column_header = {
+        'titles': [
+            "订单id",
+            "支付时间",
+            "创建时间",
+            "收款账号",
+            "费率",
+            "支付状态",
+            "订单金额",
+            "实际金额",
+            "订单号",
+            "商户订单号",
+            "备注",
+            "商品名称",
+            "所属代理",
+            "支付url",
+            "notify_url",
+            "通道",
+            "用户",
+            "设备",
 
+        ]
+    }
     def get_queryset(self):
         user = self.request.user
         return OrderInfo.objects.filter(user_id=user.id).order_by('-add_time')  # .order_by('-add_time')
@@ -128,43 +153,56 @@ class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
-        print('validated_data', validated_data)
         withdraw_no = generate_order_no(proxy_user.id)
         validated_data['withdraw_no'] = withdraw_no
         bankid = validated_data.get('bank')
-        with_banklist = [wd.id for wd in WithDrawBankInfo.objects.filter(user_id=proxy_user.id)]
-        if bankid in with_banklist:
-            # 更新商户余额
-            proxy_user.money = '%.2f' % (
-                    Decimal(proxy_user.money) - Decimal(validated_data.get('withdraw_money', '')))
-            # 更新代理余额
-            daili_queryset = UserProfile.objects.filter(id=proxy_user.proxy_id)
-            if daili_queryset:
-                daili_obj = daili_queryset[0]
-                daili_obj.money = '%.2f' % (
-                        Decimal(daili_obj.money) - Decimal(validated_data.get('withdraw_money', '')))
-                proxy_user.save()
-                daili_obj.save()
-                bank_queryset = WithDrawBankInfo.objects.filter(id=bankid)
-                if bank_queryset:
-                    bank_obj = bank_queryset[0]
-                    validated_data['bank'] = bank_obj
-                    withdraw_obj = WithDrawInfo.objects.create(**validated_data)
-                    code = 200
-                    resp['msg'] = '创建成功'
-                    serializer = UserWithDrawListSerializer(withdraw_obj)
-                    return Response(data=serializer.data, status=code)
+        safe_code = validated_data.get('safe_code')
+        if make_md5(safe_code) == proxy_user.safe_code:
+            with_banklist = [wd.id for wd in WithDrawBankInfo.objects.filter(user_id=proxy_user.id)]
+            if bankid in with_banklist:
+                # 更新商户余额
+                withdraw_money=validated_data.get('withdraw_money')
+                proxy_user.money = '%.2f' % (
+                        Decimal(proxy_user.money) - Decimal(validated_data.get('withdraw_money', '')))
+                # 更新代理余额
+                daili_queryset = UserProfile.objects.filter(id=proxy_user.proxy_id)
+                if daili_queryset:
+                    daili_obj = daili_queryset[0]
+                    daili_obj.money = '%.2f' % (
+                            Decimal(daili_obj.money) - Decimal(validated_data.get('withdraw_money', '')))
+
+                    proxy_user.save()
+                    daili_obj.save()
+                    # 引入日志
+                    log = MakeLogs()
+                    content = '用户：' + str(proxy_user.username) + '创建提现_' + '订单号_ ' + str(withdraw_no) + '  金额 ' + str(
+                        withdraw_money) + ' 元'
+                    log.add_logs('2', content, proxy_user.id)
+                    bank_queryset = WithDrawBankInfo.objects.filter(id=bankid)
+                    if bank_queryset:
+                        bank_obj = bank_queryset[0]
+                        validated_data['bank'] = bank_obj
+                        del validated_data['safe_code']
+                        withdraw_obj = WithDrawInfo.objects.create(**validated_data)
+                        code = 200
+                        resp['msg'] = '创建成功'
+                        serializer = UserWithDrawListSerializer(withdraw_obj)
+                        return Response(data=serializer.data, status=code)
+                    else:
+                        code = 400
+                        resp['msg'] = '创建失败,不存在代理收款银行卡'
+                        return Response(data=resp, status=code)
                 else:
                     code = 400
                     resp['msg'] = '创建失败'
                     return Response(data=resp, status=code)
             else:
                 code = 400
-                resp['msg'] = '创建失败'
+                resp['msg'] = '绑定的银行卡id不存在'
                 return Response(data=resp, status=code)
         else:
             code = 400
-            resp['msg'] = '绑定的银行卡id不存在'
+            resp['msg'] = '操作密码错误'
             return Response(data=resp, status=code)
 
 
@@ -530,3 +568,21 @@ class UserChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
 def test(request):
     print('接收到的信息', request.body)
     return HttpResponse('success')
+
+
+class UserLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    permission_classes = (IsAuthenticated,IsUserOnly )
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = LogFilter
+
+    def get_queryset(self):
+       return LogInfo.objects.filter(user_id=self.request.user.id).order_by('-add_time')
+
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AdminLogListInfoSerializer
+        else:
+            return AdminLogInfoSerializer

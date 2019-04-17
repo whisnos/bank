@@ -22,7 +22,7 @@ from rest_framework_jwt.views import obtain_jwt_token
 route = DefaultRouter()
 from user.views import UserInfoViewset, UserOrderViewset, UserWithDrawViewset, UserWithDrawBankViewset, \
     UserCountViewset, UserCDataViewset, UserADataViewset, UserWDataViewset, GetPayView, UserCODataViewset, \
-    UserChartViewset, test
+    UserChartViewset, test,UserLogsViewset
 
 # user
 route.register(r'user/info', UserInfoViewset, base_name="user/info")
@@ -35,11 +35,12 @@ route.register(r'user/wdata', UserWDataViewset, base_name="user/wdata")
 route.register(r'user/adata', UserADataViewset, base_name="user/adata")
 route.register(r'user/codata', UserCODataViewset, base_name="user/codata")
 route.register(r'user/chart', UserChartViewset, base_name="user/chart")
+route.register(r'user/logs', UserLogsViewset, base_name="user/logs")
 
 # proxy
 from proxy.views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
     ProxyDeviceViewset, ProxyReceiveBankViewset, ProxyCountViewset, ProxyCDatatViewset, ProxyADataViewset, \
-    ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset,ProxyRealDeviceViewset
+    ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset,ProxyRealDeviceViewset,ProxyLogsViewset
 
 route.register(r'proxy/user', ProxyUserInfoViewset, base_name="proxy/info")
 route.register(r'proxy/rateinfo', ProxyRateInfoViewset, base_name="proxy/rateinfo")
@@ -56,11 +57,13 @@ route.register(r'proxy/codata', ProxyCODataViewset, base_name="proxy/codata")
 route.register(r'proxy/cudata', ProxyCUDataViewset, base_name="proxy/cudata")
 route.register(r'proxy/chart', ProxyChartViewset, base_name="proxy/chart")
 route.register(r'proxy/backs', ProxyCallBackViewset, base_name="proxy/backs")
+route.register(r'proxy/logs', ProxyLogsViewset, base_name="proxy/logs")
+
 # admin
 from spuser.views import AdminProxyViewset, AdminuserProxyViewset, AdminChannelViewset, AdminOrderViewset, \
     AdminWithDrawViewset, AdminNoticeViewset, AdminCountViewset, PublicChannelViewset, PublicNoticeViewset, \
     AdminCUserViewset, AdminDeleteViewset, AdminCDataViewset, AdminADataViewset, AdminWDataViewset, AdminCODataViewset, \
-    AdminChartViewset, AdminCUDataViewset, AdminCUserCCViewset
+    AdminChartViewset, AdminCUDataViewset,AdminRateInfoViewset,AdminLogsViewset
 
 route.register(r'admin/proxy', AdminProxyViewset, base_name="admin/proxy")
 route.register(r'admin/user', AdminuserProxyViewset, base_name="admin/user")
@@ -70,7 +73,7 @@ route.register(r'admin/withdraw', AdminWithDrawViewset, base_name="admin/withdra
 route.register(r'admin/notice', AdminNoticeViewset, base_name="admin/notice")
 route.register(r'admin/count', AdminCountViewset, base_name="admin/count")
 route.register(r'admin/cuser', AdminCUserViewset, base_name="admin/cuser")
-route.register(r'admin/ccuser', AdminCUserCCViewset, base_name="admin/ccuser")
+# route.register(r'admin/ccuser', AdminCUserCCViewset, base_name="admin/ccuser")
 route.register(r'admin/delete', AdminDeleteViewset, base_name="admin/delete")
 route.register(r'admin/cdata', AdminCDataViewset, base_name="admin/cdata")
 route.register(r'admin/wdata', AdminWDataViewset, base_name="admin/wdata")
@@ -78,6 +81,8 @@ route.register(r'admin/adata', AdminADataViewset, base_name="admin/adata")
 route.register(r'admin/codata', AdminCODataViewset, base_name="admin/codata")
 route.register(r'admin/cudata', AdminCUDataViewset, base_name="admin/cudata")
 route.register(r'admin/chart', AdminChartViewset, base_name="admin/chart")
+route.register(r'admin/rateinfo', AdminRateInfoViewset, base_name="admin/rateinfo")
+route.register(r'admin/logs', AdminLogsViewset, base_name="admin/logs")
 
 # public
 

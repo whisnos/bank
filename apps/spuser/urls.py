@@ -20,7 +20,7 @@ from rest_framework.routers import DefaultRouter
 from .views import AdminProxyViewset, AdminuserProxyViewset, AdminChannelViewset, AdminOrderViewset, \
     AdminWithDrawViewset, AdminNoticeViewset, AdminCountViewset, AdminCUserViewset, AdminDeleteViewset, \
     AdminCDataViewset, GetPayView, AdminADataViewset, AdminWDataViewset, AdminCODataViewset, AdminChartViewset, \
-    AdminCUDataViewset
+    AdminCUDataViewset, AdminRateInfoViewset, AdminLogsViewset
 
 route = DefaultRouter()
 route.register(r'proxy', AdminProxyViewset, base_name="admin/proxy")
@@ -37,7 +37,9 @@ route.register(r'wdata', AdminWDataViewset, base_name="admin/wdata")
 route.register(r'adata', AdminADataViewset, base_name="admin/adata")
 route.register(r'codata', AdminCODataViewset, base_name="admin/codata")
 route.register(r'admin/cudata', AdminCUDataViewset, base_name="admin/cudata")
-route.register(r'chart', AdminChartViewset, base_name="admin/chart")
+route.register(r'admin/chart', AdminChartViewset, base_name="admin/chart")
+route.register(r'admin/rateinfo', AdminRateInfoViewset, base_name="admin/rateinfo")
+route.register(r'admin/logs', AdminLogsViewset, base_name="admin/logs")
 urlpatterns = [
     url(r'^', include(route.urls)),
     url(r'^test/$', GetPayView.as_view(), name="get_pay"),

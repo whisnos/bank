@@ -1,6 +1,6 @@
 from django_filters import rest_framework as filters
 
-from proxy.models import DeviceInfo, ReceiveBankInfo
+from proxy.models import DeviceInfo, ReceiveBankInfo, DeviceChannelInfo
 from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
 from user.models import UserProfile
 
@@ -65,3 +65,11 @@ class WithDrawBankFilter(filters.FilterSet):
     class Meta:
         model = WithDrawBankInfo
         fields = ['card_number']
+
+
+class DeviceChannelFilter(filters.FilterSet):
+    deviceid = filters.NumberFilter(field_name='device_id')
+
+    class Meta:
+        model = DeviceChannelInfo
+        fields = ['deviceid']

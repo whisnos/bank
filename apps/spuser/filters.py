@@ -1,6 +1,7 @@
 from django_filters import rest_framework as filters
 
 from channel.models import channelInfo
+from spuser.models import LogInfo
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 
@@ -37,3 +38,12 @@ class AdminOrderFilter(filters.FilterSet):
         model = OrderInfo
         fields = ['order_no', 'order_id', 'start_time', 'end_time', 'userid', 'proxyid', 'channelid', 'order_id',
                   'min_price', 'max_price']
+class LogFilter(filters.FilterSet):
+    content = filters.CharFilter(field_name="content", lookup_expr='icontains', help_text="名称查询")
+    start_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='gte')
+    end_time = filters.DateTimeFilter(field_name='add_time', lookup_expr='lte')
+    userid = filters.NumberFilter(field_name='user_id', help_text="根据用户ID")
+    log_type = filters.NumberFilter(field_name='log_type',help_text="根据类型过滤")
+    class Meta:
+        model = LogInfo
+        fields = ['content','start_time','end_time','userid','log_type']

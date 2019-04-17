@@ -8,7 +8,8 @@ from django.shortcuts import render
 
 # Create your views here.
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import mixins, viewsets, views, serializers
+from drf_renderer_xlsx.renderers import XLSXRenderer
+from rest_framework import mixins, viewsets, views, serializers, renderers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -19,18 +20,19 @@ from channel.models import channelInfo
 from proxy.filters import WithDrawFilter
 from proxy.models import RateInfo
 from proxy.views import UserListPagination
-from spuser.filters import AdminProxyFilter, AdminOrderFilter, AdminChannelFilter
+from spuser.filters import AdminProxyFilter, AdminOrderFilter, AdminChannelFilter,LogFilter
 from spuser.models import NoticeInfo, LogInfo
 from spuser.serializers import AdminUserDetailSerializer, AdminProxyCreateSerializer, AdminUpdateSerializer, \
     AdminUpdateUserSerializer, AdminChannelDetailSerializer, AdminChannelCreateSerializer, AdminOrderDetailSerializer, \
     AdminWithDrawInfoDetailSerializer, AdminNoticeInfoDetailSerializer, AdminProxyUpdateSerializer, \
     AdminCountDetailSerializer, AdminCUserDetailSerializer, ReleaseSerializer, \
     AdminCODataSerializer, AdminCODataRetrieveSerializer, AdminCDataOrderSerializer, OrderChartListSerializer, \
-    AdminCCRetrieveSerializer, AdminRateInfoDetailSerializer
+    AdminCCRetrieveSerializer, AdminRateInfoDetailSerializer, AdminRateInfoListDetailSerializer, \
+    AdminRateInfoputDetailSerializer, AdminLogListInfoSerializer, AdminLogInfoSerializer
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from utils.make_code import make_uuid_code, make_auth_code, make_md5
-from utils.permissions import IsOwnerOrReadOnly
+from utils.permissions import IsOwnerOrReadOnly, MakeLogs
 
 
 class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
@@ -179,15 +181,16 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
             resp['msg'] = '对应代理不存在'
             return Response(data=resp, status=code)
         proxy_user = proxy_q[0]
+        log=MakeLogs()
         if add_money:
             user.total_money = '%.2f' % (user.total_money + add_money)
             user.money = '%.2f' % (user.money + add_money)
-            # # 加日志
-            # if not ramark_info:
-            #     ramark_info = '无备注！'
-            # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
-            #     user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(ramark_info)
-            # log.add_logs('3', content, self.request.user.id)
+            # 加日志
+            if not remark:
+                remark = '无备注！'
+            content = '用户：' + str(admin_user.username) + ' 对 ' + str(
+                user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(remark)
+            log.add_logs('3', content, admin_user.id)
             # 更新代理余额
             proxy_user.total_money = '%.2f' % (proxy_user.total_money + add_money)
             proxy_user.money = '%.2f' % (proxy_user.money + add_money)
@@ -196,12 +199,12 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
             if desc_money <= user.total_money and proxy_user.total_money >= desc_money:
                 user.total_money = '%.2f' % (user.total_money - desc_money)
                 user.money = '%.2f' % (user.money - desc_money)
-                # # 加日志
-                # if not ramark_info:
-                #     ramark_info = '无备注！'
-                # content = '用户：' + str(self.request.user.username) + ' 对 ' + str(
-                #     user.username) + ' 扣款 ' + ' 金额 ' + str(minus_money) + ' 元。' + ' 备注：' + str(ramark_info)
-                # log.add_logs('3', content, self.request.user.id)
+                # 加日志
+                if not remark:
+                    remark = '无备注！'
+                content = '用户：' + str(admin_user.username) + ' 对 ' + str(
+                    user.username) + ' 扣款 ' + ' 金额 ' + str(desc_money) + ' 元。' + ' 备注：' + str(remark)
+                log.add_logs('3', content, admin_user.id)
                 # 更新代理余额
                 proxy_user.total_money = '%.2f' % (proxy_user.total_money - desc_money)
                 proxy_user.money = '%.2f' % (proxy_user.money - desc_money)
@@ -291,11 +294,29 @@ class AdminOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.R
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
     filter_class = AdminOrderFilter
-
-    def make_userlist(self):
-        user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
-        return user_list
-
+    renderer_classes = (renderers.JSONRenderer, XLSXRenderer, renderers.BrowsableAPIRenderer)
+    column_header = {
+        'titles': [
+            "订单id",
+            "创建时间",
+            "通道名称",
+            "设备名称",
+            "用户名",
+            "费率",
+            "支付状态",
+            "订单金额",
+            "实际金额",
+            "订单号",
+            "商户订单号",
+            "备注",
+            "支付时间",
+            "商品名称",
+            "所属代理",
+            "支付url",
+            "收款账号",
+            "notify_url",
+        ]
+    }
     def get_queryset(self):
         user = self.request.user
         return OrderInfo.objects.all().order_by('-add_time')  # .order_by('-add_time')
@@ -443,22 +464,21 @@ class AdminCUserViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.R
     #                                      add_time__gte=datetime.datetime.now() - datetime.timedelta(hours=1)).count()
     #     return Response(data=resp, status=200)
 
-
-class AdminCUserCCViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
-                          mixins.UpdateModelMixin):
-    permission_classes = [IsAdminUser, ]
-    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
-    pagination_class = UserListPagination
-    filter_backends = (DjangoFilterBackend,)
-    filter_class = AdminProxyFilter
-
-    def get_queryset(self):
-        return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
-
-    def get_serializer_class(self):
-        if self.action == 'update':
-            return AdminCCRetrieveSerializer
-        return AdminCUserDetailSerializer
+    # class AdminCUserCCViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+    #                           mixins.UpdateModelMixin):
+    #     permission_classes = [IsAdminUser, ]
+    #     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    #     pagination_class = UserListPagination
+    #     filter_backends = (DjangoFilterBackend,)
+    #     filter_class = AdminProxyFilter
+    #
+    #     def get_queryset(self):
+    #         return UserProfile.objects.filter(level=3).order_by('-add_time')  # .order_by('-add_time')
+    #
+    #     def get_serializer_class(self):
+    #         if self.action == 'update':
+    #             return AdminCCRetrieveSerializer
+    #         return AdminCUserDetailSerializer
 
     # def list(self, request, *args, **kwargs):
     #     # obj = self.get_object()
@@ -707,10 +727,10 @@ class AdminCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             add_time__range=(s_time, e_time))  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
-        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
+        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
 
         # user_queryset = UserProfile.objects.filter(level=3)
         # # 总金额
@@ -793,10 +813,10 @@ class AdminADataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         order_queryset = OrderInfo.objects.all()  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
-        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money', '0')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
+        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
 
         # 订单
         resp['success_money'] = success_money
@@ -833,7 +853,7 @@ class AdminCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
         s_time = request.GET.get('start_time', t_time)
         e_time = request.GET.get('end_time', te_time)
-        print('e_time', s_time, e_time)
+        channelid = request.GET.get('channelid', None)
         if not s_time or not e_time:
             s_time = t_time
             e_time = te_time
@@ -848,12 +868,22 @@ class AdminCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
 
         order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),
                                                   proxy=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        if channelid:
+            if not re.match(r'^([1-9]\d*$)', str(channelid)):
+                code = 400
+                resp['msg'] = 'channelid参数错误'
+                return Response(data=resp, status=code)
+            order_queryset=order_queryset.filter(channel_id=channelid)
         all_money = order_queryset.aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
-        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
+        success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
+            real_money=Sum('real_money')).get('real_money')
+        if not all_money:
+            all_money = 0
+        if not success_money:
+            success_money = 0
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
+        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
 
         # 订单
         resp['success_money'] = success_money
@@ -890,10 +920,11 @@ class AdminCUDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             '%Y-%m-%d %H:%M')  # .strftime('%Y-%m-%d %H:%M')
         s_time = request.GET.get('start_time', t_time)
         e_time = request.GET.get('end_time', te_time)
-        print('e_time', s_time, e_time)
+        channelid = request.GET.get('channelid', None)
         if not s_time or not e_time:
             s_time = t_time
             e_time = te_time
+
         if not re.match(r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})$', str(s_time)):
             code = 400
             resp['msg'] = '时间格式错误'
@@ -905,12 +936,22 @@ class AdminCUDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
 
         order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),
                                                   user_id=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        if channelid:
+            if not re.match(r'^([1-9]\d*$)', str(channelid)):
+                code = 400
+                resp['msg'] = 'channelid参数错误'
+                return Response(data=resp, status=code)
+            order_queryset = order_queryset.filter(channel_id=channelid)
         all_money = order_queryset.aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
-        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
+        if not all_money:
+            all_money = 0
+        success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
+            real_money=Sum('real_money')).get('real_money')
+        if not success_money:
+            success_money = 0
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
+        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
 
         # 订单
         resp['success_money'] = success_money
@@ -933,3 +974,42 @@ class AdminChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
             Q(pay_status=1) | Q(pay_status=3),
             add_time__gte=time.strftime('%Y-%m-%d', time.localtime()),
         ).order_by('-add_time')
+
+class AdminRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):
+    permission_classes = (IsAdminUser,)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    # filter_backends = (DjangoFilterBackend,)
+    # filter_class = WithDrawFilter
+    # filter_backends = (SearchFilter,)
+    # search_fields = ('title', "content")
+
+    def get_queryset(self):
+        return RateInfo.objects.all().order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return AdminRateInfoputDetailSerializer
+        return AdminRateInfoListDetailSerializer
+
+
+class AdminLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
+    # serializer_class = LogInfoSerializer
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    permission_classes = (IsAdminUser, )
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = LogFilter
+
+    def get_queryset(self):
+        return LogInfo.objects.all().order_by('-add_time')
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AdminLogListInfoSerializer
+        else:
+            return AdminLogInfoSerializer
