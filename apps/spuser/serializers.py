@@ -62,14 +62,14 @@ class AdminProxyUpdateSerializer(serializers.ModelSerializer):
                                      style={'input_type': 'password'}, help_text='密码')
     password2 = serializers.CharField(label='密码', required=False, allow_blank=False, write_only=True, min_length=6,
                                       style={'input_type': 'password'}, help_text='密码')
-    safe_code = serializers.CharField(label='操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
-                                      style={'input_type': 'password'}, help_text='密码')
-    safe_code2 = serializers.CharField(label='操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
-                                       style={'input_type': 'password'}, help_text='密码')
-
+    # safe_code = serializers.CharField(label='操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
+    #                                   style={'input_type': 'password'}, help_text='密码')
+    # safe_code2 = serializers.CharField(label='操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
+    #                                    style={'input_type': 'password'}, help_text='密码')
+    # , 'safe_code', 'safe_code2'
     class Meta:
         model = UserProfile
-        fields = ['password', 'password2', 'safe_code', 'safe_code2']
+        fields = ['password', 'password2']
 
 
 class AdminProxyCreateSerializer(serializers.ModelSerializer):
@@ -127,7 +127,16 @@ class AdminUpdateUserSerializer(serializers.ModelSerializer):
     desc_money = serializers.DecimalField(max_digits=7, decimal_places=2, help_text='扣款', write_only=True,
                                           required=False)
     remark = serializers.CharField(write_only=True, required=False)
-
+    def validate_add_money(self, data):
+        print(data)
+        if not re.match(r"(^[1-9]([0-9]{1,4})?(\.[0-9]{1,2})?$)|(^(0){1}$)|(^[0-9]\.[0-9]([0-9])?$)", str(data)):
+            raise serializers.ValidationError('请输入正确的金额')
+        return data
+    def validate_desc_money(self, data):
+        print(data)
+        if not re.match(r"(^[1-9]([0-9]{1,4})?(\.[0-9]{1,2})?$)|(^(0){1}$)|(^[0-9]\.[0-9]([0-9])?$)",str(data)):
+            raise serializers.ValidationError('请输入正确的金额')
+        return data
     def validate(self, attrs):
         if str(attrs.get('is_active')) not in ['True', 'False', 'None']:
             raise serializers.ValidationError('传值错误')
@@ -516,7 +525,7 @@ class AdminRateInfoputDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     user = serializers.CharField(read_only=True)
     mapid = serializers.IntegerField(write_only=True, required=False)
-
+    channel = serializers.CharField(required=False)
     def validate_mapid(self, data):
         if not channelInfo.objects.filter(id=data):
             raise serializers.ValidationError('绑定通道不存在')
@@ -818,14 +827,14 @@ class AdminCCRetrieveSerializer(serializers.ModelSerializer):
 
 
 class ReleaseSerializer(serializers.Serializer):
-    s_time = serializers.DateTimeField(write_only=True)
-    e_time = serializers.DateTimeField(write_only=True)
-    dele_type = serializers.CharField(write_only=True)
-    safe_code = serializers.CharField(write_only=True)
-
+    start_time = serializers.DateTimeField(write_only=True,required=True)
+    end_time = serializers.DateTimeField(write_only=True,required=True)
+    dele_type = serializers.CharField(write_only=True,required=True)
+    safe_code = serializers.CharField(write_only=True,required=True)
+    proxy_id = serializers.IntegerField(write_only=True,required=True)
     def validate(self, attrs):
-        s_time = attrs.get('s_time')
-        e_time = attrs.get('e_time')
+        s_time = attrs.get('start_time')
+        e_time = attrs.get('end_time')
         dele_type = attrs.get('dele_type')
         if s_time:
             if not re.match(r'(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2})', str(s_time)):

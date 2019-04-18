@@ -1,6 +1,7 @@
 from django_filters import rest_framework as filters
 
 from channel.models import channelInfo
+from proxy.models import RateInfo
 from spuser.models import LogInfo
 from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
@@ -47,3 +48,9 @@ class LogFilter(filters.FilterSet):
     class Meta:
         model = LogInfo
         fields = ['content','start_time','end_time','userid','log_type']
+
+class RateInfoFilter(filters.FilterSet):
+    userid = filters.NumberFilter(field_name='user')
+    class Meta:
+        model = RateInfo
+        fields = ['userid']

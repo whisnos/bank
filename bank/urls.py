@@ -22,7 +22,7 @@ from rest_framework_jwt.views import obtain_jwt_token
 route = DefaultRouter()
 from user.views import UserInfoViewset, UserOrderViewset, UserWithDrawViewset, UserWithDrawBankViewset, \
     UserCountViewset, UserCDataViewset, UserADataViewset, UserWDataViewset, GetPayView, UserCODataViewset, \
-    UserChartViewset, test,UserLogsViewset
+    UserChartViewset, test,UserLogsViewset,get_info,QueryOrderView,device_login
 
 # user
 route.register(r'user/info', UserInfoViewset, base_name="user/info")
@@ -40,7 +40,8 @@ route.register(r'user/logs', UserLogsViewset, base_name="user/logs")
 # proxy
 from proxy.views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
     ProxyDeviceViewset, ProxyReceiveBankViewset, ProxyCountViewset, ProxyCDatatViewset, ProxyADataViewset, \
-    ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset,ProxyRealDeviceViewset,ProxyLogsViewset
+    ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset, \
+    ProxyRealDeviceViewset, ProxyLogsViewset, UpInfoOrderInfoViewset,ProxyDeviceChannelViewset
 
 route.register(r'proxy/user', ProxyUserInfoViewset, base_name="proxy/info")
 route.register(r'proxy/rateinfo', ProxyRateInfoViewset, base_name="proxy/rateinfo")
@@ -58,6 +59,8 @@ route.register(r'proxy/cudata', ProxyCUDataViewset, base_name="proxy/cudata")
 route.register(r'proxy/chart', ProxyChartViewset, base_name="proxy/chart")
 route.register(r'proxy/backs', ProxyCallBackViewset, base_name="proxy/backs")
 route.register(r'proxy/logs', ProxyLogsViewset, base_name="proxy/logs")
+route.register(r'proxy/upinfo', UpInfoOrderInfoViewset, base_name="proxy/upinfo")
+route.register(r'proxy/devicechannel', ProxyDeviceChannelViewset, base_name="proxy/devicechannel")
 
 # admin
 from spuser.views import AdminProxyViewset, AdminuserProxyViewset, AdminChannelViewset, AdminOrderViewset, \
@@ -78,8 +81,8 @@ route.register(r'admin/delete', AdminDeleteViewset, base_name="admin/delete")
 route.register(r'admin/cdata', AdminCDataViewset, base_name="admin/cdata")
 route.register(r'admin/wdata', AdminWDataViewset, base_name="admin/wdata")
 route.register(r'admin/adata', AdminADataViewset, base_name="admin/adata")
-route.register(r'admin/codata', AdminCODataViewset, base_name="admin/codata")
-route.register(r'admin/cudata', AdminCUDataViewset, base_name="admin/cudata")
+route.register(r'admin/codata', AdminCODataViewset, base_name="admin/codata") # 代理
+route.register(r'admin/cudata', AdminCUDataViewset, base_name="admin/cudata") # 查看过滤 商户 数据
 route.register(r'admin/chart', AdminChartViewset, base_name="admin/chart")
 route.register(r'admin/rateinfo', AdminRateInfoViewset, base_name="admin/rateinfo")
 route.register(r'admin/logs', AdminLogsViewset, base_name="admin/logs")
@@ -101,4 +104,8 @@ urlpatterns = [
     url(r'^login/$', obtain_jwt_token),
     url(r'^get_pay/$', GetPayView.as_view(), name="get_pay"),
     url(r'^test/$', test, name='test'),
+    url(r'^get_info/$', get_info, name='get_info'),
+    # 查询订单接口
+    url(r'^query_order/$', QueryOrderView.as_view(), name="query_order"),
+    url(r'^device_login/$', device_login, name='device_login'),
 ]

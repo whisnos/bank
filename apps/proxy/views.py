@@ -16,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
+from bank.settings import DEFAULT_RATE, CLOSE_TIME
 from channel.models import channelInfo
 from proxy.filters import ProxyUserFilter, WithDrawFilter, DeviceFilter, ReceiveBankFilter, DeviceChannelFilter
 from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo, DeviceChannelInfo
@@ -24,8 +25,9 @@ from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSeri
     ProxyWithDrawInfoUpdateDetailSerializer, ProxyDeviceInfoDetailSerializer, ProxyDeviceUpdateDetailSerializer, \
     ProxyWithDrawInfoCreSerializer, ProxyReceiveBankInfoDetailSerializer, ProxyReceiveBankCreDetailSerializer, \
     ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer, ProxyCountDetailSerializer, \
-    ProxyCODataRetrieveSerializer, ProxyCODataSerializer, CallBackOrderUpdateSeralizer, ProxyDChannelDetailSerializer
-from spuser.filters import AdminOrderFilter, AdminProxyFilter, LogFilter
+    ProxyCODataRetrieveSerializer, ProxyCODataSerializer, CallBackOrderUpdateSeralizer, ProxyDChannelDetailSerializer, \
+    OrderGetSerializer, ProxyDCInfoSerializer, ProxyDCInfoUPSerializer
+from spuser.filters import AdminOrderFilter, AdminProxyFilter, LogFilter, RateInfoFilter
 from spuser.models import LogInfo
 from spuser.serializers import AdminOrderDetailSerializer, OrderChartListSerializer, AdminLogListInfoSerializer, \
     AdminLogInfoSerializer
@@ -74,16 +76,23 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         user.set_password(validated_data['password'])
         user.uid = make_uuid_code()
         user.auth_code = make_auth_code()
-        user.is_active = False
         user.proxy_id = proxy_user.id
         user.save()
+        # 默认开启所有通道
+        all_channel=channelInfo.objects.all()
+        for c in all_channel:
+            r=RateInfo()
+            r.rate=DEFAULT_RATE
+            r.channel_id=c.id
+            r.user_id=user.id
+            r.save()
         code = 200
         serializer = ProxyUserDetailSerializer(user)
         return Response(data=serializer.data, status=code)
 
     def update(self, request, *args, **kwargs):
         proxy_user = self.request.user
-        code = 201
+        code = 200
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         auth_code = self.request.data.get('auth_code')
@@ -95,8 +104,8 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         log = MakeLogs()
         # 代理 修改 商户
         if add_money:
-            user.total_money = '%.2f' % (user.total_money + add_money)
-            user.money = '%.2f' % (user.money + add_money)
+            user.total_money = (user.total_money + add_money)
+            user.money = (user.money + add_money)
             # 加日志
             if not remark:
                 remark = '无备注！'
@@ -104,13 +113,14 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
                 user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(remark)
             log.add_logs('3', content, proxy_user.id)
             # 更新代理余额
-            proxy_user.total_money = '%.2f' % (proxy_user.total_money + add_money)
-            proxy_user.money = '%.2f' % (proxy_user.money + add_money)
+            proxy_user.total_money = (proxy_user.total_money + add_money)
+            proxy_user.money = (proxy_user.money + add_money)
+            user.save()
             proxy_user.save()
         if desc_money:
             if desc_money <= user.total_money and proxy_user.total_money >= desc_money:
-                user.total_money = '%.2f' % (user.total_money - desc_money)
-                user.money = '%.2f' % (user.money - desc_money)
+                user.total_money = (user.total_money - desc_money)
+                user.money = (user.money - desc_money)
                 # 加日志
                 if not remark:
                     remark = '无备注！'
@@ -118,9 +128,10 @@ class ProxyUserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
                     user.username) + ' 扣款 ' + ' 金额 ' + str(desc_money) + ' 元。' + ' 备注：' + str(remark)
                 log.add_logs('3', content, proxy_user.id)
                 # 更新代理余额
-                proxy_user.total_money = '%.2f' % (proxy_user.total_money - desc_money)
-                proxy_user.money = '%.2f' % (proxy_user.money - desc_money)
+                proxy_user.total_money = (proxy_user.total_money - desc_money)
+                proxy_user.money = (proxy_user.money - desc_money)
                 proxy_user.save()
+                user.save()
             else:
                 code = 404
         if web_url:
@@ -138,7 +149,8 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
     permission_classes = (IsAuthenticated,IsProxyOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
-
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = RateInfoFilter
     def make_userlist(self):
         user_list = [users.id for users in UserProfile.objects.filter(proxy_id=self.request.user.id)]
         return user_list
@@ -854,3 +866,88 @@ class ProxyLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             return AdminLogListInfoSerializer
         else:
             return AdminLogInfoSerializer
+
+class UpInfoOrderInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.UpdateModelMixin):
+    permission_classes = (IsAuthenticated, IsProxyOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    # serializer_class = VerifyPaySerializer
+    serializer_class = OrderGetSerializer
+
+    def get_queryset(self):
+
+        # 关闭超时订单
+        now_time = datetime.datetime.now() - datetime.timedelta(minutes=CLOSE_TIME)
+        OrderInfo.objects.filter(pay_status='PAYING', add_time__lte=now_time).update(
+            pay_status='TRADE_CLOSE')
+
+        return OrderInfo.objects.filter(proxy=self.request.user.id, pay_url__isnull=True,
+                                            add_time__gte=time.strftime('%Y-%m-%d',
+                                                                        time.localtime(time.time()))).order_by(
+                '-add_time')
+
+    def update(self, request, *args, **kwargs):
+        user = self.request.user
+        resp = {'msg': []}
+        print('request.data', request.data, user)
+        dict_result = request.data
+
+        # 获取代理商户列表
+        user_list = []
+        user_queryset = UserProfile.objects.filter(proxy_id=user.id)
+        if not user_queryset:
+            resp['msg'] = '不存在有效商户'
+            code = 400
+            return Response(data=resp, status=code)
+        for user_obj in user_queryset:
+            user_list.append(user_obj.id)
+
+        order_queryset = OrderInfo.objects.filter(id=dict_result.get('id'))
+        if not dict_result.get('pay_url') or not dict_result.get('order_no'):
+            resp['msg'] = '不存在有效商户'
+            code = 400
+            return Response(data=resp, status=code)
+        if order_queryset:
+            if order_queryset[0].user_id in user_list:
+                if not order_queryset[0].pay_url:
+                    try:
+                        print("dict_result.get('pay_url')", dict_result.get('pay_url'), dict_result.get('order_no'))
+                        order_queryset[0].pay_url = dict_result.get('pay_url')
+                        order_queryset[0].order_no = dict_result.get('order_no')
+                        order_queryset[0].save()
+                        resp['msg'] = '处理成功'
+                        code = 200
+                    except Exception:
+                        print('00000000000')
+                        resp['msg'] = '处理失败，订单号已存在'
+                        return Response(data=resp, status=400)
+                    return Response(data=resp, status=code)
+                else:
+                    resp['msg'] = '订单已存在支付链接，请勿重复操作'
+                    code = 400
+                    return Response(data=resp, status=code)
+            else:
+                resp['msg'] = '其他商户的订单，请勿操作'
+                code = 400
+                return Response(data=resp, status=code)
+        else:
+            resp['msg'] = '不存在有效订单'
+            code = 400
+            return Response(data=resp, status=code)
+
+class ProxyDeviceChannelViewset(viewsets.GenericViewSet, mixins.ListModelMixin,mixins.UpdateModelMixin,mixins.RetrieveModelMixin):
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    permission_classes = (IsAuthenticated,IsProxyOnly )
+    pagination_class = UserListPagination
+    # filter_backends = (DjangoFilterBackend,)
+    # filter_class = LogFilter
+
+    def get_queryset(self):
+        d_list=[u.id for u in DeviceInfo.objects.filter(user_id=self.request.user.id)]
+        return DeviceChannelInfo.objects.filter(device_id__in=d_list).order_by('-add_time')
+
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return ProxyDCInfoUPSerializer
+        else:
+            return ProxyDCInfoSerializer

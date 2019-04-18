@@ -1,11 +1,12 @@
 import datetime
+import json
 import random
 import re
 import time
 from decimal import Decimal
 
 from django.db.models import Sum, Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django_filters.rest_framework import DjangoFilterBackend
@@ -258,7 +259,7 @@ class UserWDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         ke_money = user_queryset.aggregate(
             money=Sum('money')).get('money', '0')
         # 已提现
-        withd_queryset = WithDrawInfo.objects.filter(id=self.request.user.id)
+        withd_queryset = WithDrawInfo.objects.filter(user_id=self.request.user.id)
         yi_money = withd_queryset.filter(withdraw_status=1).aggregate(
             withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
         # 提现中
@@ -395,6 +396,9 @@ class GetPayView(views.APIView):
         if not return_url:
             resp['msg'] = '请填写正确跳转url~~'
             return Response(resp, status=404)
+        if not notify_url:
+            resp['msg'] = '请填写正确回调url~~'
+            return Response(resp, status=404)
         user_queryset = UserProfile.objects.filter(uid=uid, is_active=True)
         if not user_queryset:
             resp['msg'] = 'uid或者auth_code错误，请重试~~'
@@ -495,10 +499,9 @@ class GetPayView(views.APIView):
             # resp['order_id'] = order_id
             # resp['add_time'] = str(order.add_time)
             # resp['channel'] = channel
-            return Response(resp)
-        resp['code'] = 404
+            return Response(resp,status=400)
         resp['msg'] = 'key匹配错误'
-        return Response(resp)
+        return Response(resp,status=400)
 
 
 class UserCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
@@ -586,3 +589,84 @@ class UserLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             return AdminLogListInfoSerializer
         else:
             return AdminLogInfoSerializer
+
+def get_info(request):
+    order_id = request.GET.get('id')
+    resp = {'msg': []}
+    if order_id:
+        order_queryset = OrderInfo.objects.filter(id=order_id)
+        code = 200
+        if order_queryset:
+            print(order_queryset.query)
+            resp['msg'] = '获取成功'
+            resp['money'] = order_queryset[0].order_money
+            resp['pay_url'] = order_queryset[0].pay_url
+        else:
+            resp['msg'] = '不存在相应订单号'
+            code = 400
+    else:
+        resp['msg'] = '不存在相应订单号'
+        code = 400
+    return JsonResponse(data=resp, status=code)
+
+class QueryOrderView(views.APIView):
+    def post(self, request):
+        processed_dict = {}
+        resp = {'msg': '订单不存在', 'code': 400}
+        for key, value in request.data.items():
+            processed_dict[key] = value
+        uid = processed_dict.get('uid', '')
+        order_no = processed_dict.get('order_no', '')
+        user_queryset = UserProfile.objects.filter(uid=uid, is_active=True)
+        if user_queryset:
+            user = user_queryset[0]
+            order_queryset = OrderInfo.objects.filter(user=user, order_no=order_no)
+            if order_queryset:
+                order = order_queryset[0]
+                resp['msg'] = '查询成功'
+                resp['code'] = 200
+                resp['order_money'] = order.order_money
+                resp['remark'] = order.remark
+                resp['add_time'] = order.add_time
+                resp['pay_status'] = order.pay_status
+                resp['order_no'] = order.order_no
+                resp['order_id'] = order.order_id
+                resp['pay_time'] = order.pay_time
+                resp['pay_url'] = order.pay_url
+                resp['real_money'] = order.real_money
+                # resp['channel'] = eval('order.get_receive_way_display()')  # eval('obj.get_receive_way_display()')
+                resp['channel'] = order.channel  # eval('obj.get_receive_way_display()')
+                return Response(resp)
+        return Response(resp)
+
+@csrf_exempt
+def device_login(request):
+    resp = {'msg': '操作成功'}
+    if request.method == 'POST':
+        result = request.body
+        try:
+            dict_result = json.loads(result)
+        except Exception:
+            code = 400
+            resp['msg'] = '请求方式错误,请用json格式传参'
+            return JsonResponse(resp, status=code)
+        username = dict_result.get('username')
+        password = dict_result.get('password')
+        device_queryset = DeviceInfo.objects.filter(device_name=username)
+        if not device_queryset:
+            code = 400
+            resp['msg'] = '登录失败'
+            return JsonResponse(resp, status=code)
+        device_obj = device_queryset[0]
+        if device_obj.password != password:
+            code = 400
+            resp['msg'] = '登录失败'
+            return JsonResponse(resp, status=code)
+        # auth_code = device_obj.auth_code
+        code = 200
+        # resp['auth_code'] = auth_code
+        return JsonResponse(resp, status=code)
+    else:
+        code = 400
+        resp['msg'] = '仅支持POST'
+        return JsonResponse(resp, status=code)

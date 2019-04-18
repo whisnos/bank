@@ -89,7 +89,7 @@ class ProxyUserCreateSerializer(serializers.ModelSerializer):
                                    validators=[
                                        UniqueValidator(queryset=UserProfile.objects.all(), message='手机号不能重复')
                                    ], help_text='手机号')
-
+    web_url = serializers.CharField(required=False,write_only=True,allow_blank=False,)
     # uid = serializers.CharField(label='uid', read_only=True, validators=[
     #     UniqueValidator(queryset=UserProfile.objects.all(), message='uid不能重复')
     # ], help_text='用户uid')
@@ -99,7 +99,7 @@ class ProxyUserCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['username', 'password', 'password2', 'mobile']
+        fields = ['username', 'password', 'password2', 'mobile','web_url']
 
     def validate_mobile(self, data):
         if not re.match(r'^1([38][0-9]|4[579]|5[0-3,5-9]|6[6]|7[0135678]|9[89])\d{8}$', data):

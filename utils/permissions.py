@@ -28,10 +28,10 @@ def jwt_response_payload_handler(token, user=None, request=None):
     else:
         print('REMOTE_ADDR')
         ip = request.META.get('REMOTE_ADDR', '')
-    # # 引入日志
-    # log = MakeLogs()
-    # content = '用户：' + str(user.username) + ' 登录ip为：' + str(ip)
-    # log.add_logs('0', content, user.id)
+    # 引入日志
+    log = MakeLogs()
+    content = '用户：' + str(user.username) + ' 登录ip为：' + str(ip)
+    log.add_logs('0', content, user.id)
     return {
         'token': token,
         'username': user.username,

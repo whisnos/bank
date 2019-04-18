@@ -20,7 +20,7 @@ from rest_framework.routers import DefaultRouter
 from .views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
     ProxyDeviceViewset, ProxyReceiveBankViewset, ProxyCountViewset, ProxyCDatatViewset, ProxyADataViewset, \
     ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset, \
-    ProxyLogsViewset
+    ProxyLogsViewset, UpInfoOrderInfoViewset
 
 route = DefaultRouter()
 route.register(r'user', ProxyUserInfoViewset, base_name="proxy/info")
@@ -38,6 +38,7 @@ route.register(r'cudata', ProxyCUDataViewset, base_name="proxy/cudata")
 route.register(r'chart', ProxyChartViewset, base_name="proxy/chart")
 route.register(r'backs', ProxyCallBackViewset, base_name="proxy/backs")
 route.register(r'logs', ProxyLogsViewset, base_name="proxy/logs")
+route.register(r'upinfo', UpInfoOrderInfoViewset, base_name="proxy/upinfo")
 urlpatterns = [
     url(r'^', include(route.urls)),
 ]

@@ -1,6 +1,7 @@
 import datetime
 import re
 import time
+from decimal import Decimal
 
 from django.db.models import Sum, Q
 from django.http import HttpResponse
@@ -20,7 +21,7 @@ from channel.models import channelInfo
 from proxy.filters import WithDrawFilter
 from proxy.models import RateInfo
 from proxy.views import UserListPagination
-from spuser.filters import AdminProxyFilter, AdminOrderFilter, AdminChannelFilter,LogFilter
+from spuser.filters import AdminProxyFilter, AdminOrderFilter, AdminChannelFilter, LogFilter, RateInfoFilter
 from spuser.models import NoticeInfo, LogInfo
 from spuser.serializers import AdminUserDetailSerializer, AdminProxyCreateSerializer, AdminUpdateSerializer, \
     AdminUpdateUserSerializer, AdminChannelDetailSerializer, AdminChannelCreateSerializer, AdminOrderDetailSerializer, \
@@ -58,71 +59,48 @@ class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         admin_user = self.request.user
         user = self.get_object()
         resp = {'msg': []}
-        if admin_user.is_superuser:
-            code = 204
-            resp['id'] = user.id
-            resp['msg'] = '删除成功'
-            self.perform_destroy(user)
-            return Response(data=resp, status=code)
-        else:
-            code = 403
-            resp['msg'] = '没有操作权限'
-            return Response(data=resp, status=code)
+        code = 204
+        resp['id'] = user.id
+        resp['msg'] = '删除成功'
+        self.perform_destroy(user)
+        return Response(data=resp, status=code)
 
     def update(self, request, *args, **kwargs):
-        admin_user = self.request.user
         user = self.get_object()
         resp = {'msg': []}
-        code = 200
-        if admin_user.is_superuser:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            password = self.request.data.get('password', '')
-            password2 = self.request.data.get('password2', '')
-            safe_code = self.request.data.get('safe_code', '')
-            safe_code2 = self.request.data.get('safe_code2', '')
-            if password:
-                if password == password2:
-                    user.set_password(password)
-                elif password != password2:
-                    code = 400
-            if safe_code == safe_code2:
-                if safe_code:
-                    print('admin修改 代理 操作密码中..........')
-                    safe_code = make_md5(safe_code)
-                    user.safe_code = safe_code
-            else:
-                code = 400
-            user.save()
-            serializer = AdminUserDetailSerializer(user)
-            return Response(data=serializer.data, status=code)
-        else:
-            code = 403
-            resp['msg'] = '没有操作权限'
-            return Response(data=resp, status=code)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        password=serializer.validated_data.get('password')
+        password2 = serializer.validated_data.get('password2', '')
+        print('password',password)
+        if password:
+            if password == password2:
+                user.set_password(password)
+                user.save()
+                code = 200
+                serializer = AdminUserDetailSerializer(user)
+                return Response(data=serializer.data, status=code)
 
+        code=400
+        resp['msg']='修改失败'
+        return Response(data=resp, status=code)
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
         proxy_user = self.request.user
-        if proxy_user.is_superuser:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            validated_data = serializer.validated_data
-            del validated_data['password2']
-            user = UserProfile.objects.create(**validated_data)
-            user.set_password(validated_data['password'])
-            user.uid = make_uuid_code()
-            user.auth_code = make_auth_code()
-            user.level = 2
-            user.save()
-            code = 200
-            resp['msg'] = '创建成功'
-            serializer = AdminUserDetailSerializer(user)
-            return Response(data=serializer.data, status=code)
-        else:
-            code = 403
-            resp['msg'] = '没有操作权限'
-            return Response(data=resp, status=code)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+        del validated_data['password2']
+        user = UserProfile.objects.create(**validated_data)
+        user.set_password(validated_data['password'])
+        user.uid = make_uuid_code()
+        user.auth_code = make_auth_code()
+        user.level = 2
+        user.save()
+        code = 200
+        resp['msg'] = '创建成功'
+        serializer = AdminUserDetailSerializer(user)
+        return Response(data=serializer.data, status=code)
 
 
 class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
@@ -148,16 +126,11 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         admin_user = self.request.user
         user = self.get_object()
         resp = {'msg': []}
-        if admin_user.level == 1:
-            code = 204
-            resp['id'] = user.id
-            resp['msg'] = '删除成功'
-            self.perform_destroy(user)
-            return Response(data=resp, status=code)
-        else:
-            code = 403
-            resp['msg'] = '没有操作权限'
-            return Response(data=resp, status=code)
+        code = 204
+        resp['id'] = user.id
+        resp['msg'] = '删除成功'
+        self.perform_destroy(user)
+        return Response(data=resp, status=code)
 
     def update(self, request, *args, **kwargs):
         admin_user = self.request.user
@@ -176,6 +149,7 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         remark = serializer.validated_data.get('remark')
         is_active = serializer.validated_data.get('is_active', '')
         proxy_q = UserProfile.objects.filter(id=user.proxy_id)
+        print(type(user.total_money),99)
         if not proxy_q:
             code = 400
             resp['msg'] = '对应代理不存在'
@@ -183,8 +157,11 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         proxy_user = proxy_q[0]
         log=MakeLogs()
         if add_money:
-            user.total_money = '%.2f' % (user.total_money + add_money)
-            user.money = '%.2f' % (user.money + add_money)
+            print('add_money',add_money)
+            # user.total_money = '%.2f' % (Decimal(user.total_money) + add_money)
+            # user.money = '%.2f' % (Decimal(user.total_money) + add_money)
+            user.total_money = ((user.total_money) + add_money)
+            user.money = ((user.total_money) + add_money)
             # 加日志
             if not remark:
                 remark = '无备注！'
@@ -192,13 +169,19 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
                 user.username) + ' 加款 ' + ' 金额 ' + str(add_money) + ' 元。' + ' 备注：' + str(remark)
             log.add_logs('3', content, admin_user.id)
             # 更新代理余额
-            proxy_user.total_money = '%.2f' % (proxy_user.total_money + add_money)
-            proxy_user.money = '%.2f' % (proxy_user.money + add_money)
+            # proxy_user.total_money = '%.2f' % (proxy_user.total_money + add_money)
+            # proxy_user.money = '%.2f' % (proxy_user.money + add_money)
+            proxy_user.total_money = (proxy_user.total_money + add_money)
+            proxy_user.money = (proxy_user.money + add_money)
+            user.save()
             proxy_user.save()
         if desc_money:
-            if desc_money <= user.total_money and proxy_user.total_money >= desc_money:
-                user.total_money = '%.2f' % (user.total_money - desc_money)
-                user.money = '%.2f' % (user.money - desc_money)
+            print(type(desc_money),type(user.total_money))
+            if desc_money <= (user.total_money) and (proxy_user.total_money) >= desc_money:
+                # user.total_money = '%.2f' % (Decimal(user.total_money) - desc_money)
+                # user.money = '%.2f' % (user.money - desc_money)
+                user.total_money =  ((user.total_money) - desc_money)
+                user.money =  (user.money - desc_money)
                 # 加日志
                 if not remark:
                     remark = '无备注！'
@@ -206,8 +189,10 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
                     user.username) + ' 扣款 ' + ' 金额 ' + str(desc_money) + ' 元。' + ' 备注：' + str(remark)
                 log.add_logs('3', content, admin_user.id)
                 # 更新代理余额
-                proxy_user.total_money = '%.2f' % (proxy_user.total_money - desc_money)
-                proxy_user.money = '%.2f' % (proxy_user.money - desc_money)
+                # proxy_user.total_money = '%.2f' % (proxy_user.total_money - desc_money)
+                # proxy_user.money = '%.2f' % (proxy_user.money - desc_money)
+                proxy_user.total_money = (proxy_user.total_money - desc_money)
+                proxy_user.money = (proxy_user.money - desc_money)
                 proxy_user.save()
             else:
                 code = 400
@@ -630,18 +615,19 @@ class AdminDeleteViewset(mixins.DestroyModelMixin, viewsets.GenericViewSet, mixi
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        s_time = serializer.validated_data.get('s_time', '')
-        e_time = serializer.validated_data.get('e_time', '')
+        s_time = serializer.validated_data.get('start_time', '')
+        e_time = serializer.validated_data.get('end_time', '')
         dele_type = serializer.validated_data.get('dele_type', '')
         safe_code = serializer.validated_data.get('safe_code', '')
+        proxy_id = serializer.validated_data.get('proxy_id', '')
         new_key = make_md5(safe_code)
         if new_key == user.safe_code:
             if dele_type == 'order':
-                order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time))
-            elif dele_type == 'money':
-                order_queryset = WithDrawInfo.objects.filter(add_time__range=(s_time, e_time))
-            elif dele_type == 'log':
-                order_queryset = LogInfo.objects.filter(add_time__range=(s_time, e_time))
+                order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),proxy=proxy_id)
+            # elif dele_type == 'money':
+            #     order_queryset = WithDrawInfo.objects.filter(add_time__range=(s_time, e_time))
+            # elif dele_type == 'log':
+            #     order_queryset = LogInfo.objects.filter(add_time__range=(s_time, e_time))
             else:
                 code = 400
                 resp['msg'] = '类型错误'
@@ -650,6 +636,10 @@ class AdminDeleteViewset(mixins.DestroyModelMixin, viewsets.GenericViewSet, mixi
                 for obj in order_queryset:
                     print(obj.id)
                     obj.delete()
+            else:
+                code = 400
+                resp['msg'] = '暂无可清除数据'
+                return Response(data=resp, status=code)
             code = 200
             return Response(data=resp, status=code)
         else:
@@ -980,8 +970,8 @@ class AdminRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
-    # filter_backends = (DjangoFilterBackend,)
-    # filter_class = WithDrawFilter
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = RateInfoFilter
     # filter_backends = (SearchFilter,)
     # search_fields = ('title', "content")
 

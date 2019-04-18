@@ -145,3 +145,6 @@ JWT_AUTH = {
 CLOSE_TIME = 60
 # 前端域名
 FONT_DOMAIN = 'https://www.bfpay.cc'
+
+# 默认费率 全局
+DEFAULT_RATE=0.015

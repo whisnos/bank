@@ -3,6 +3,7 @@ import re
 import time
 from decimal import Decimal
 
+from django.http import HttpResponse, JsonResponse
 from rest_framework.response import Response
 
 from bank.settings import FONT_DOMAIN
@@ -28,9 +29,8 @@ class MakePay(object):
         if self.channel == 'atb':
             bank_queryet = ReceiveBankInfo.objects.filter(is_active=True, user_id=self.user.proxy_id)
             if not bank_queryet:
-                resp['code'] = 404
                 resp['msg'] = '收款商户未激活,或不存在有效收款卡'
-                return Response(resp)
+                return resp
 
             short_code = make_short_code(8)
             order_no = "{time_str}{userid}{randstr}".format(time_str=time.strftime("%Y%m%d%H%M%S"),
