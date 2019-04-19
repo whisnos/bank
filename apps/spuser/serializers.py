@@ -168,6 +168,7 @@ class AdminChannelCreateSerializer(serializers.ModelSerializer):
 
 class AdminOrderDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+    pay_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     channel = serializers.SerializerMethodField()
     device = serializers.SerializerMethodField()
     user = serializers.CharField(read_only=True, )

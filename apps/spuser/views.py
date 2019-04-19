@@ -658,19 +658,26 @@ class AdminWDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         user_queryset = UserProfile.objects.filter(level=3)
         # 总金额
         total_money = user_queryset.aggregate(
-            total_money=Sum('total_money')).get('total_money', '0')
+            total_money=Sum('total_money')).get('total_money')
         # 可提现
         ke_money = user_queryset.aggregate(
-            money=Sum('money')).get('money', '0')
+            money=Sum('money')).get('money')
         # 已提现
         withd_queryset = WithDrawInfo.objects.filter(withdraw_status=1)
         yi_money = withd_queryset.aggregate(
-            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money')
         # 提现中
         withd_queryset = WithDrawInfo.objects.filter(withdraw_status=0)
         zhong_money = withd_queryset.aggregate(
-            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
-
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money')
+        if not total_money:
+            total_money = 0
+        if not ke_money:
+            ke_money = 0
+        if not yi_money:
+            yi_money = 0
+        if not zhong_money:
+            zhong_money = 0
         # 可提现
         resp['ke_money'] = ke_money
         # 已提现
@@ -716,9 +723,13 @@ class AdminCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         order_queryset = OrderInfo.objects.filter(
             add_time__range=(s_time, e_time))  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
+        if not all_money:
+            all_money = 0
+        if not success_money:
+            all_money = 0
         all_num = order_queryset.count()
         success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
 

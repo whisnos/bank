@@ -16,7 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
-from bank.settings import DEFAULT_RATE, CLOSE_TIME
+from bank.settings import DEFAULT_RATE, CLOSE_TIME, SECRET_VERIFY
 from channel.models import channelInfo
 from proxy.filters import ProxyUserFilter, WithDrawFilter, DeviceFilter, ReceiveBankFilter, DeviceChannelFilter
 from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo, DeviceChannelInfo
@@ -26,7 +26,7 @@ from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSeri
     ProxyWithDrawInfoCreSerializer, ProxyReceiveBankInfoDetailSerializer, ProxyReceiveBankCreDetailSerializer, \
     ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer, ProxyCountDetailSerializer, \
     ProxyCODataRetrieveSerializer, ProxyCODataSerializer, CallBackOrderUpdateSeralizer, ProxyDChannelDetailSerializer, \
-    OrderGetSerializer, ProxyDCInfoSerializer, ProxyDCInfoUPSerializer
+    OrderGetSerializer, ProxyDCInfoSerializer, ProxyDCInfoUPSerializer, VerifyPaySerializer
 from spuser.filters import AdminOrderFilter, AdminProxyFilter, LogFilter, RateInfoFilter
 from spuser.models import LogInfo
 from spuser.serializers import AdminOrderDetailSerializer, OrderChartListSerializer, AdminLogListInfoSerializer, \
@@ -35,7 +35,7 @@ from trade.models import OrderInfo, WithDrawInfo
 from user.models import UserProfile
 from user.serializers import UpdateUserInfoSerializer, ProxyUserCreateSerializer
 
-from utils.make_code import make_auth_code, make_uuid_code
+from utils.make_code import make_auth_code, make_uuid_code, make_md5
 from utils.permissions import IsProxyOnly, MakeLogs
 
 
@@ -335,11 +335,18 @@ class ProxyDeviceViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
         del validated_data['password2']
         device_obj = DeviceInfo.objects.create(**validated_data)
+        device_obj.auth_code=make_auth_code()
+        device_obj.save()
+        # 默认开启所有通道
+        all_channel = channelInfo.objects.all()
+        for c in all_channel:
+            d = DeviceChannelInfo()
+            d.channel_id = c.id
+            d.device_id = device_obj.id
+            d.save()
         code = 200
         serializer = ProxyDeviceInfoDetailSerializer(device_obj)
         return Response(data=serializer.data, status=code)
@@ -457,18 +464,25 @@ class ProxyWDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         user_list=[d.id for d in user_queryset]
         # 总金额
         total_money = user_queryset.aggregate(
-            total_money=Sum('total_money')).get('total_money', '0')
+            total_money=Sum('total_money')).get('total_money')
         # 可提现
         ke_money = user_queryset.aggregate(
-            money=Sum('money')).get('money', '0')
+            money=Sum('money')).get('money')
         # 已提现
         withd_queryset = WithDrawInfo.objects.filter(user_id__in=user_list)
         yi_money = withd_queryset.filter(withdraw_status=1).aggregate(
-            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money')
         # 提现中
         zhong_money = withd_queryset.filter(withdraw_status=0).aggregate(
-            withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
-
+            withdraw_money=Sum('withdraw_money')).get('withdraw_money')
+        if not total_money:
+            total_money = 0
+        if not ke_money:
+            ke_money = 0
+        if not yi_money:
+            yi_money = 0
+        if not zhong_money:
+            zhong_money = 0
         # 可提现
         resp['ke_money'] = ke_money
         # 已提现
@@ -509,12 +523,15 @@ class ProxyCDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         order_queryset = OrderInfo.objects.filter(
             add_time__range=(s_time, e_time),proxy=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
         success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
         success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
-
+        if not all_money:
+            all_money = 0
+        if not success_money:
+            all_money = 0
         # user_queryset = UserProfile.objects.filter(proxy_id=self.request.user.id)
         # user_list=[d.id for d in user_queryset]
         # # 总金额
@@ -605,16 +622,17 @@ class ProxyCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             code = 400
             resp['msg'] = '时间格式错误'
             return Response(data=resp, status=code)
-        print('s_time',s_time,e_time)
         order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),user_id=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
-        print('order_queryset',order_queryset)
         all_money = order_queryset.aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
         success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
         success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
-
+        if not all_money:
+            all_money = 0
+        if not success_money:
+            all_money = 0
         # 订单
         resp['success_money'] = success_money
         resp['all_money'] = all_money
@@ -658,16 +676,17 @@ class ProxyCUDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
             code = 400
             resp['msg'] = '时间格式错误'
             return Response(data=resp, status=code)
-        print('s_time',s_time,e_time)
         order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),user_id=user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
-        print('order_queryset',order_queryset)
         all_money = order_queryset.aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
         success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
-            real_money=Sum('real_money')).get('real_money', '0')
+            real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
         success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
-
+        if not all_money:
+            all_money = 0
+        if not success_money:
+            all_money = 0
         # 订单
         resp['success_money'] = success_money
         resp['all_money'] = all_money
@@ -741,7 +760,7 @@ class ProxyCallBackViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                         if res.text == 'success':
                             resp['msg'] = '回调成功，成功更改订单状态!'
                             order_obj.pay_status = 1
-                            resp['pay_time'] = order_obj.pay_time = datetime.datetime.now()
+                            resp['pay_time'] = order_obj.pay_time = (datetime.datetime.now()).strftime(format('%Y-%m-%d %H:%M'))
                             order_obj.save()
                             resp['pay_status'] = order_obj.pay_status
                             # # 加日志
@@ -767,17 +786,18 @@ class ProxyCallBackViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                         try:
                             res = requests.post(notify_url, headers=headers, data=r, timeout=10, stream=True)
                             # 更新用户收款
-                            order_user.total_money = '%.2f' % (
-                                    Decimal(order_user.total_money) + Decimal(order_obj.total_amount))
+                            order_user.total_money = order_user.total_money  + (order_obj.real_money)
+                            order_user.money =  (
+                                    (order_user.money) + (order_obj.real_money))
                             order_user.save()
                             # 代理代理收款
-                            user.total_money = '%.2f' % (
-                                        Decimal(user.total_money) + Decimal(order_obj.real_money))
-                            user.money = '%.2f' % (
-                                        Decimal(user.money) + Decimal(order_obj.real_money))
+                            user.total_money = (
+                                        (user.total_money) + (order_obj.real_money))
+                            user.money =  (
+                                        (user.money) + (order_obj.real_money))
                             user.save()
                             account_num = order_obj.account_num
-                            bank_queryset = ReceiveBankInfo.objects.filter(account_num=account_num)
+                            bank_queryset = ReceiveBankInfo.objects.filter(card_number=account_num)
                             if bank_queryset:
                                 bank_obj = bank_queryset[0]
 
@@ -792,7 +812,7 @@ class ProxyCallBackViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
 
                             if res.text == 'success':
                                 resp['pay_status'] = 1
-                                resp['pay_time'] = order_obj.pay_time = datetime.datetime.now()
+                                resp['pay_time'] = order_obj.pay_time = (datetime.datetime.now()).strftime(format('%Y-%m-%d %H:%M'))
                                 order_obj.pay_status = 1
                                 order_obj.save()
                                 # 加日志
@@ -800,11 +820,11 @@ class ProxyCallBackViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                                 #     order_obj.order_no) + ' 强行回调成功'
                                 # log.add_logs('1', content, self.request.user.id)
 
-                                resp['msg'] = '回调成功，已自动加款，金额:' + str(order_obj.total_amount)
+                                resp['msg'] = '回调成功，已自动加款，金额:' + str(order_obj.real_money)
                                 return Response(data=resp, status=200)
                             else:
                                 resp['pay_status'] = 3
-                                resp['pay_time'] = order_obj.pay_time = datetime.datetime.now()
+                                resp['pay_time'] = order_obj.pay_time = (datetime.datetime.now()).strftime(format('%Y-%m-%d %H:%M'))
                                 order_obj.pay_status = 3
                                 order_obj.save()
                                 # 日志
@@ -815,7 +835,7 @@ class ProxyCallBackViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                                 return Response(data=resp, status=400)
                         except Exception:
                             resp['pay_status'] = 3
-                            resp['pay_time'] = order_obj.pay_time = datetime.datetime.now()
+                            resp['pay_time'] = order_obj.pay_time = (datetime.datetime.now()).strftime(format('%Y-%m-%d %H:%M'))
                             order_obj.pay_status = 3
                             order_obj.save()
                             # 更新用户收款
@@ -824,7 +844,7 @@ class ProxyCallBackViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                             order_user.save()
 
                             account_num = order_obj.account_num
-                            bank_queryset = ReceiveBankInfo.objects.filter(account_num=account_num)
+                            bank_queryset = ReceiveBankInfo.objects.filter(card_number=account_num)
                             if bank_queryset:
                                 bank_obj = bank_queryset[0]
 
@@ -840,7 +860,7 @@ class ProxyCallBackViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                             # content = '用户：' + str(self.request.user.username) + ' 对订单号: ' + str(
                             #     order_obj.order_no) + ' 强行回调失败，请检查回调地址'
                             # log.add_logs('1', content, self.request.user.id)
-                            resp['msg'] = '回调处理，加款成功金额:%s，通知失败' % (str(order_obj.total_amount))
+                            resp['msg'] = '回调处理，加款成功金额:%s，通知失败' % (str(order_obj.real_money))
                             return Response(data=resp, status=400)
             code = 400
             resp['msg'] = '代理账号不存在'
@@ -951,3 +971,231 @@ class ProxyDeviceChannelViewset(viewsets.GenericViewSet, mixins.ListModelMixin,m
             return ProxyDCInfoUPSerializer
         else:
             return ProxyDCInfoSerializer
+
+class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    permission_classes = (IsAuthenticated, IsProxyOnly)
+    queryset = OrderInfo.objects.all()
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    serializer_class = VerifyPaySerializer
+
+    def update(self, request, *args, **kwargs):
+        user = self.request.user
+        resp = {'msg': '操作成功'}
+        print('user', user)
+        print(3333333333)
+        processed_dict = {}
+        for key, value in self.request.data.items():
+            processed_dict[key] = value
+        money = processed_dict.get('total_amount', '')
+        bank_tel = processed_dict.get('bank_tel', '')
+        auth_code = processed_dict.get('auth_code', '')
+        key = processed_dict.get('key', '')
+        # orderid = processed_dict.get('id', '')
+        channel = processed_dict.get('channel', '')
+        order_no = processed_dict.get('order_no', '')
+        print('XXXXXXXXXXXX', channel, order_no, key)
+        if channel == 'atb':
+            device_queryset = DeviceInfo.objects.filter(auth_code=auth_code, is_active=True)
+            if device_queryset:
+                device_obj = device_queryset[0]
+                bank_queryset = ReceiveBankInfo.objects.filter(user_id=user.id, bank_tel=bank_tel,
+                                                               device=device_obj.id)
+                if not bank_queryset:
+                    code = 404
+                    resp['msg'] = '银行卡不存在，联系管理员处理'
+                    return Response(data=resp, status=code)
+                elif len(bank_queryset) == 1:
+                    bank_obj = bank_queryset[0]
+                    print(bank_obj.card_number)
+                else:
+                    resp['msg'] = '存在多张银行卡，需手动处理'
+                    code = 404
+                    return Response(data=resp, status=code)
+
+                order_queryset = OrderInfo.objects.filter(pay_status=0, real_money=money,
+                                                          account_num=bank_obj.card_number)
+                if not order_queryset:
+                    code = 404
+                    resp['msg'] = '订单不存在，联系管理员处理'
+                    return Response(data=resp, status=code)
+                elif len(order_queryset) == 1:
+                    order_obj = order_queryset[0]
+                else:
+                    resp['msg'] = '存在多笔订单，需手动处理'
+                    code = 404
+                    return Response(data=resp, status=code)
+                # 加密顺序 money + bank_tel + auth_code + SECRET_VERIFY
+                new_temp = str(money) + str(bank_tel) + str(auth_code) + SECRET_VERIFY
+                my_key = make_md5(new_temp)
+
+                if key == my_key:
+                    order_obj.pay_status = 'TRADE_SUCCESS'
+                    order_obj.pay_time = datetime.datetime.now()
+                    print('订单状态处理成功！！！！！！！！！！！！！！！！！！！！！！！')
+                    user_id = order_obj.user_id
+                    user_obj = UserProfile.objects.filter(id=user_id)[0]
+                    account_num = order_obj.account_num
+                    bank_obj = ReceiveBankInfo.objects.filter(card_number=account_num)[0]
+
+                    # 更新用户收款
+                    user_obj.total_money = '%.2f' % (Decimal(user_obj.total_money) + Decimal(money))
+                    user_obj.money = '%.2f' % (Decimal(user_obj.money) + Decimal(money))
+
+                    # 代理代理收款
+                    user.total_money = '%.2f' % (Decimal(user.total_money) + Decimal(money))
+                    user.money = '%.2f' % (Decimal(user.total_money) + Decimal(money))
+
+                    # 更新商家存钱
+                    bank_obj.total_money = '%.2f' % (Decimal(bank_obj.total_money) + Decimal(money))
+                    # bank_obj.last_time = datetime.datetime.now()
+                    # 设备收款
+                    device_obj.total_money = '%.2f' % (Decimal(device_obj.total_money) + Decimal(money))
+
+                    notify_url = user_obj.notify_url
+                    # 进行保存
+                    order_obj.save()
+                    user_obj.save()
+                    user.save()
+                    bank_obj.save()
+                    device_obj.save()
+                    # 加密顺序 uid + order_no + total_amount + auth_code
+                    new_temp = str(user_obj.uid) + str(order_obj.order_no) + str(order_obj.total_amount) + str(
+                        auth_code)
+                    my_key = make_md5(new_temp)
+                    resp['key'] = my_key
+                    resp['pay_status'] = order_obj.pay_status
+                    resp['add_time'] = str(order_obj.add_time)
+                    resp['pay_time'] = str(order_obj.pay_time)
+                    resp['total_amount'] = str(order_obj.total_amount)
+                    resp['order_id'] = order_obj.order_id
+                    resp['order_no'] = order_obj.order_no
+                    resp['remark'] = order_obj.remark
+                    resp['money'] = str(order_obj.money)
+                    r = json.dumps(resp)
+                    headers = {'Content-Type': 'application/json'}
+
+                    if not notify_url:
+                        order_obj.pay_status = 'NOTICE_FAIL'
+                        order_obj.save()
+                        resp['msg'] = '订单处理成功，无效notify_url，通知失败'
+                        return Response(data=resp, status=400)
+
+                    try:
+                        res = requests.post(notify_url, headers=headers, data=r, timeout=10, stream=True)
+                        if res.text == 'success':
+                            resp['msg'] = '订单处理成功!'
+                            return Response(data=resp, status=200)
+                        else:
+                            order_obj.pay_status = resp['pay_status'] = 'NOTICE_FAIL'
+                            order_obj.save()
+                            resp['msg'] = '订单处理成功，通知失败'
+                            return Response(data=resp, status=400)
+                    except Exception:
+                        order_obj.pay_status = resp['pay_status'] = 'NOTICE_FAIL'
+                        order_obj.save()
+                        print('00000000000')
+                        resp['msg'] = '订单处理成功，通知失败'
+                        return Response(data=resp, status=400)
+                else:
+                    resp['msg'] = '加密错误'
+                    code = 400
+                    return Response(data=resp, status=code)
+            else:
+                resp['msg'] = '设备不存在'
+                code = 400
+                return Response(data=resp, status=code)
+        elif channel == 'wang' and order_no:
+            device_queryset = DeviceInfo.objects.filter(auth_code=auth_code, is_active=True)
+            if device_queryset:
+                device_obj = device_queryset[0]
+                # 加密顺序 money + bank_tel + auth_code + SECRET_VERIFY
+                new_temp = SECRET_VERIFY + str(order_no)
+                my_key = make_md5(new_temp)
+                if key == my_key:
+
+                    user_list = []
+                    user_queryset = UserProfile.objects.filter(proxy_id=user.id)
+
+                    if not user_queryset:
+                        return []
+
+                    for user_obj in user_queryset:
+                        user_list.append(user_obj.id)
+                    order_queryset = OrderInfo.objects.filter(order_no=order_no)
+                    if order_queryset and order_queryset[0].user_id in user_list:
+                        if order_queryset[0].pay_status == 0:
+                            order_queryset[0].pay_status = 1
+                            order_queryset[0].pay_time = datetime.datetime.now()
+                            print('wang 通道 订单状态处理成功！！！！！！！！！！！！！！！！！！！！！！！')
+                            order_queryset[0].save()
+                            order_user = UserProfile.objects.filter(id=order_queryset[0].user_id)[0]
+                            print('order_user', order_user)
+                            # 更新用户收款
+                            order_user.total_money = '%.2f' % (
+                                        Decimal(order_user.total_money) + Decimal(order_queryset[0].real_money))
+                            order_user.money = '%.2f' % (
+                                    Decimal(order_user.money) + Decimal(order_queryset[0].real_money))
+
+                            # 代理代理收款
+                            user.total_money = '%.2f' % (
+                                        Decimal(user.total_money) + Decimal(order_queryset[0].real_money))
+                            user.money = '%.2f' % (
+                                    Decimal(user.money) + Decimal(order_queryset[0].real_money))
+                            # 设备收款
+                            device_obj.total_money = '%.2f' % (Decimal(device_obj.total_money) + Decimal(money))
+                            # 进行保存
+                            order_user.save()
+                            user.save()
+                            device_obj.save()
+                            # 加密顺序 uid + order_no + total_amount + auth_code
+                            new_temp = str(order_user.uid) + str(order_queryset[0].order_no) + str(
+                                order_queryset[0].real_money)
+                            my_key = make_md5(new_temp)
+                            resp['key'] = my_key
+                            resp['pay_status'] = order_queryset[0].pay_status
+                            resp['add_time'] = str(order_queryset[0].add_time)
+                            resp['pay_time'] = str(order_queryset[0].pay_time)
+                            resp['real_money'] = str(order_queryset[0].real_money)
+                            resp['order_id'] = order_queryset[0].order_id
+                            resp['order_no'] = order_queryset[0].order_no
+                            resp['remark'] = order_queryset[0].remark
+                            resp['order_money'] = str(order_queryset[0].order_money)
+                            r = json.dumps(resp)
+                            headers = {'Content-Type': 'application/json'}
+                            if not order_user.notify_url:
+                                order_queryset[0].pay_status = 'NOTICE_FAIL'
+                                order_queryset[0].save()
+                                resp['msg'] = '订单处理成功，无效notify_url，通知失败'
+                                return Response(data=resp, status=400)
+                            try:
+                                res = requests.post(order_user.notify_url, headers=headers, data=r, timeout=10,
+                                                    stream=True)
+                                if res.text == 'success':
+                                    resp['msg'] = '订单处理成功!'
+                                    return Response(data=resp, status=200)
+                                else:
+                                    order_queryset[0].pay_status = resp['pay_status'] = 'NOTICE_FAIL'
+                                    order_queryset[0].save()
+                                    resp['msg'] = '订单处理成功，通知失败'
+                                    return Response(data=resp, status=400)
+                            except Exception:
+                                order_queryset[0].pay_status = resp['pay_status'] = 'NOTICE_FAIL'
+                                order_queryset[0].save()
+                                resp['msg'] = '订单处理成功，通知失败'
+                                return Response(data=resp, status=400)
+                        else:
+                            resp['msg'] = '订单处理失败，非paying订单'
+                            return Response(data=resp, status=400)
+
+                    else:
+                        code = 404
+                        resp['msg'] = '订单不存在，联系管理员处理'
+                        return Response(data=resp, status=code)
+                else:
+                    resp['msg'] = '加密错误'
+                    code = 400
+                    return Response(data=resp, status=code)
+            else:
+                resp['msg'] = '设备不存在'
+                code = 400
+                return Response(data=resp, status=code)

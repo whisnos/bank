@@ -148,3 +148,6 @@ FONT_DOMAIN = 'https://www.bfpay.cc'
 
 # 默认费率 全局
 DEFAULT_RATE=0.015
+
+# 验证动态key
+SECRET_VERIFY = '@#$@!bfpay#(&'

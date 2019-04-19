@@ -38,7 +38,7 @@ class MakePay(object):
             # # 处理金额
             while True:
                 for bank in bank_queryet:
-                    order_queryset = OrderInfo.objects.filter(pay_status=0, order_money=self.order_money,
+                    order_queryset = OrderInfo.objects.filter(pay_status=0, order_money=self.real_money,
                                                               account_num=bank.card_number)
                     if not order_queryset:
                         account_num = bank.card_number
@@ -46,7 +46,7 @@ class MakePay(object):
                     else:
                         continue
                 if order_queryset:
-                    self.order_money = (Decimal(self.order_money) + Decimal(random.uniform(-0.9, 0.9))).quantize(
+                    self.real_money = (Decimal(self.real_money) + Decimal(random.uniform(-0.9, 0.9))).quantize(
                         Decimal('0.00'))
                 else:
                     break
@@ -84,7 +84,7 @@ class MakePay(object):
             order.device_id = self.decive_obj.id
             # order.order_no = order_no
             order.pay_status = 0
-            order.real_money = self.real_money
+            # order.real_money = self.real_money
             order.order_money = self.order_money
             order.remark = self.remark
             order.order_id = self.order_id
@@ -94,7 +94,7 @@ class MakePay(object):
             resp['msg'] = '创建成功'
             resp['code'] = 200
             resp['order_money'] = self.order_money
-            resp['real_money'] = self.real_money
+            # resp['real_money'] = self.real_money
             resp['order_id'] = self.order_id
             resp['add_time'] = str(order.add_time)
             resp['channel'] = self.channel

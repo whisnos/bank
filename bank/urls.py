@@ -41,7 +41,7 @@ route.register(r'user/logs', UserLogsViewset, base_name="user/logs")
 from proxy.views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
     ProxyDeviceViewset, ProxyReceiveBankViewset, ProxyCountViewset, ProxyCDatatViewset, ProxyADataViewset, \
     ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset, \
-    ProxyRealDeviceViewset, ProxyLogsViewset, UpInfoOrderInfoViewset,ProxyDeviceChannelViewset
+    ProxyRealDeviceViewset, ProxyLogsViewset, UpInfoOrderInfoViewset,ProxyDeviceChannelViewset,VerifyViewset
 
 route.register(r'proxy/user', ProxyUserInfoViewset, base_name="proxy/info")
 route.register(r'proxy/rateinfo', ProxyRateInfoViewset, base_name="proxy/rateinfo")
@@ -59,7 +59,7 @@ route.register(r'proxy/cudata', ProxyCUDataViewset, base_name="proxy/cudata")
 route.register(r'proxy/chart', ProxyChartViewset, base_name="proxy/chart")
 route.register(r'proxy/backs', ProxyCallBackViewset, base_name="proxy/backs")
 route.register(r'proxy/logs', ProxyLogsViewset, base_name="proxy/logs")
-route.register(r'proxy/upinfo', UpInfoOrderInfoViewset, base_name="proxy/upinfo")
+
 route.register(r'proxy/devicechannel', ProxyDeviceChannelViewset, base_name="proxy/devicechannel")
 
 # admin
@@ -93,7 +93,8 @@ route.register(r'public/channel', PublicChannelViewset, base_name="public/channe
 route.register(r'public/notice', PublicNoticeViewset, base_name="public/notice")
 
 # directly
-
+route.register(r'orderinfo', UpInfoOrderInfoViewset, base_name="orderinfo")
+route.register(r'verifys', VerifyViewset, base_name='verifys')  # 验证 手机揽收 后的信息
 urlpatterns = [
     url(r'^', include(route.urls)),
     url(r'^user/', include('user.urls')),

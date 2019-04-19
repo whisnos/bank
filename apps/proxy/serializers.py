@@ -285,7 +285,7 @@ class ProxyDeviceInfoDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeviceInfo
-        fields = ['id', 'device_name', 'password', 'channel', 'is_active', 'add_time', 'hour_total_num',
+        fields = ['id', 'device_name', 'password', 'channel', 'is_active', 'add_time','auth_code', 'hour_total_num',
                   'hour_success_num', 'hour_money_all', 'hour_money_success', 'today_total_num',
                   'today_success_num', 'today_money_all', 'today_money_success', 'yesterday_total_num',
                   'yesterday_success_num', 'yesterday_money_all', 'yesterday_money_success',
@@ -306,13 +306,14 @@ class ProxyWithDrawInfoCreSerializer(serializers.ModelSerializer):
                                         validators=[
                                             UniqueValidator(queryset=DeviceInfo.objects.all(), message='用户名不能重复')
                                         ], help_text='用户名')
-    password = serializers.CharField(label='密码', write_only=True, required=True, allow_blank=False, min_length=6,
+    password = serializers.CharField(label='密码', write_only=True, required=True, allow_blank=False, min_length=6,max_length=15,
                                      style={'input_type': 'password'}, help_text='密码')
-    password2 = serializers.CharField(label='确认密码', write_only=True, required=True, allow_blank=False, min_length=6,
+    password2 = serializers.CharField(label='确认密码', write_only=True, required=True, allow_blank=False, min_length=6,max_length=15,
                                       style={'input_type': 'password'}, help_text='重复密码')
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     def validate(self, attrs):
+        print('attrs',attrs)
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError('两次输入密码不一致')
         return attrs
@@ -721,4 +722,9 @@ class ProxyDCInfoUPSerializer(serializers.ModelSerializer):
     device= serializers.CharField(required=False,read_only=True)
     class Meta:
         model = DeviceChannelInfo
+        fields = '__all__'
+
+class VerifyPaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderInfo
         fields = '__all__'

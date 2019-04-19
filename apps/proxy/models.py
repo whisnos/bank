@@ -31,12 +31,12 @@ class RateInfo(models.Model):
 
 class DeviceInfo(models.Model):
     device_name = models.CharField(max_length=25, unique=True, verbose_name='设备名称')
-    password = models.CharField(max_length=8, verbose_name='密码')
+    password = models.CharField(max_length=15, verbose_name='密码')
     total_money = models.DecimalField(max_digits=9, decimal_places=2, default=0.00, verbose_name='总收款')
     add_time = models.DateTimeField(default=datetime.now, verbose_name='创建时间')
     is_active = models.BooleanField(default=False, verbose_name='是否激活')
     user = models.ForeignKey(UserProfile, verbose_name='用户', on_delete=models.CASCADE)
-
+    auth_code = models.CharField(max_length=32, null=True, blank=True, verbose_name='用户验证码')
     class Meta:
         verbose_name = '设备管理'
         verbose_name_plural = verbose_name

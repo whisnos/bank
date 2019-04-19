@@ -76,7 +76,7 @@ class UpdateOnlyUserInfoSerializer(serializers.ModelSerializer):
 
 
 class ProxyUserCreateSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(label='用户名', required=True, min_length=5, max_length=20, allow_blank=False,
+    username = serializers.CharField(label='用户名', required=True, min_length=2, max_length=20, allow_blank=False,
                                      validators=[
                                          UniqueValidator(queryset=UserProfile.objects.all(), message='用户名不能重复')
                                      ], help_text='用户名')
@@ -89,7 +89,7 @@ class ProxyUserCreateSerializer(serializers.ModelSerializer):
                                    validators=[
                                        UniqueValidator(queryset=UserProfile.objects.all(), message='手机号不能重复')
                                    ], help_text='手机号')
-    web_url = serializers.CharField(required=False,write_only=True,allow_blank=False,)
+    web_url = serializers.CharField(required=False,write_only=True,allow_blank=True,allow_null=True)
     # uid = serializers.CharField(label='uid', read_only=True, validators=[
     #     UniqueValidator(queryset=UserProfile.objects.all(), message='uid不能重复')
     # ], help_text='用户uid')
@@ -469,3 +469,14 @@ class UserCODataSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['id', 'username']
+
+
+class OrderGetSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    money = serializers.SerializerMethodField(read_only=True)
+    def get_money(self, instance):
+
+        return int(instance.total_amount)*100
+    class Meta:
+        model = OrderInfo
+        fields = ['id','money']
