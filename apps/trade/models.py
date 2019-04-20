@@ -29,7 +29,7 @@ class OrderInfo(models.Model):
     channel = models.ForeignKey(channelInfo, verbose_name='通道', on_delete=models.CASCADE)
     user = models.ForeignKey(UserProfile, verbose_name='用户', on_delete=models.CASCADE)
     proxy = models.IntegerField(null=True, blank=True, verbose_name='代理')
-    pay_url = models.CharField(max_length=300, null=True, blank=True, verbose_name='支付链接')
+    pay_url = models.TextField(null=True, blank=True, verbose_name='支付链接')
     device = models.ForeignKey(DeviceInfo,on_delete=models.CASCADE, null=True, blank=True,verbose_name='设备')
     account_num = models.CharField(max_length=32, null=True, blank=True, verbose_name='银行卡号')
     notify_url = models.CharField(max_length=100, null=True, blank=True, verbose_name='商户回调url')

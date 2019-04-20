@@ -704,12 +704,17 @@ class OrderGetSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     order_money = serializers.SerializerMethodField(read_only=True)
 
-    def get_order_money(self, instance):
-        return int(instance.total_amount) * 100
+    # def get_order_money(self, instance):
+    #     return int(instance.total_amount) * 100
 
     class Meta:
         model = OrderInfo
         fields = ['id', 'order_money']
+class OrderUpdatePaySerializer(serializers.Serializer):
+    auth_code = serializers.CharField(required=True)
+    # class Meta:
+    #     model = OrderInfo
+    #     fields = ['auth_code']
 class ProxyDCInfoSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     class Meta:

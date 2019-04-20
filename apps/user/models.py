@@ -23,6 +23,7 @@ class UserProfile(AbstractUser):
     mobile = models.CharField(max_length=11, null=True, blank=True, verbose_name='手机号')
     proxy = models.ForeignKey("self", null=True, blank=True, verbose_name="所属代理", help_text="所属代理",
                               related_name="proxys", on_delete=models.CASCADE)
+    is_google = models.BooleanField(default=False,verbose_name='是否谷歌')
 
     # is_proxy = models.BooleanField(default=False, verbose_name='是否代理')
 
@@ -32,3 +33,7 @@ class UserProfile(AbstractUser):
 
     def __str__(self):
         return self.username
+
+class Google2Auth(models.Model):
+    user = models.OneToOneField(UserProfile,on_delete=models.CASCADE)
+    key = models.CharField(verbose_name="Google秘钥",max_length=128)

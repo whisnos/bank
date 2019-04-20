@@ -1,3 +1,5 @@
+import base64
+import codecs
 import datetime
 import json
 import random
@@ -6,7 +8,7 @@ import time
 from decimal import Decimal
 
 from django.db.models import Sum, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, Http404
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django_filters.rest_framework import DjangoFilterBackend
@@ -26,11 +28,11 @@ from spuser.filters import AdminOrderFilter, AdminProxyFilter, LogFilter
 from spuser.models import LogInfo
 from spuser.serializers import OrderChartListSerializer, AdminLogListInfoSerializer, AdminLogInfoSerializer
 from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
-from user.models import UserProfile
+from user.models import UserProfile, Google2Auth
 from user.serializers import UserDetailSerializer, UserOrderListSerializer, \
     UserWithDrawListSerializer, UserWithDrawCreateSerializer, UserWithDrawBankListSerializer, \
     UserWithDrawBankCreateSerializer, UpdateOnlyUserInfoSerializer, UserCountDetailSerializer, \
-    UserCODataSerializer
+    UserCODataSerializer, GoogleOnlyUserInfoSerializer
 from utils.make_code import make_auth_code, make_md5, generate_order_no, make_short_code
 from utils.pay import MakePay
 from utils.permissions import IsUserOnly, MakeLogs
@@ -119,6 +121,7 @@ class UserOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Re
 
         ]
     }
+
     def get_queryset(self):
         user = self.request.user
         return OrderInfo.objects.filter(user_id=user.id).order_by('-add_time')  # .order_by('-add_time')
@@ -127,8 +130,13 @@ class UserOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Re
         # if self.action == 'update':
         #     return UpdateUserInfoSerializer
         return UserOrderListSerializer
-
-
+import pyotp
+def Google_Verify_Result(secret_key,verifycode):
+    t = pyotp.TOTP(secret_key)
+    result = t.verify(verifycode,valid_window=1) #对输入验证码进行校验，正确返回True
+    res = result if result is True else False
+    print("ret:",res)
+    return res
 class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                           mixins.CreateModelMixin):
     permission_classes = (IsAuthenticated, IsUserOnly)
@@ -148,21 +156,35 @@ class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
 
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
+        print(1)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         proxy_user = self.request.user
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
         withdraw_no = generate_order_no(proxy_user.id)
         validated_data['withdraw_no'] = withdraw_no
         bankid = validated_data.get('bank')
         safe_code = validated_data.get('safe_code')
+        googel_code = validated_data.get('googel_code')
+        print(9,googel_code)
+        if proxy_user.is_google:
+            print(1)
+            try:
+                # 判断用户是否已经绑定Google令牌
+                key = Google2Auth.objects.get(user_id=self.request.user.id).key
+                print(2,key)
+            except:
+                raise Http404("未绑定令牌")
+            if not Google_Verify_Result(key, googel_code):
+                # 验证令牌
+                return Response({"success": True, "msg": "令牌失效", "results": None}, status=400)
+            print('5566')
         if make_md5(safe_code) == proxy_user.safe_code:
+            print(666)
             with_banklist = [wd.id for wd in WithDrawBankInfo.objects.filter(user_id=proxy_user.id)]
             if bankid in with_banklist:
                 # 更新商户余额
-                withdraw_money=validated_data.get('withdraw_money')
+                withdraw_money = validated_data.get('withdraw_money')
                 proxy_user.money = '%.2f' % (
                         Decimal(proxy_user.money) - Decimal(validated_data.get('withdraw_money', '')))
                 # 更新代理余额
@@ -184,6 +206,7 @@ class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
                         bank_obj = bank_queryset[0]
                         validated_data['bank'] = bank_obj
                         del validated_data['safe_code']
+                        del validated_data['googel_code']
                         withdraw_obj = WithDrawInfo.objects.create(**validated_data)
                         code = 200
                         resp['msg'] = '创建成功'
@@ -317,10 +340,10 @@ class UserCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             user_id=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money')
-        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
+        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
         if not all_money:
             all_money = 0
         if not success_money:
@@ -368,10 +391,10 @@ class UserADataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             user_id=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money')
-        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
+        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
         if not all_money:
             all_money = 0
         if not success_money:
@@ -439,7 +462,7 @@ class GetPayView(views.APIView):
                 resp['msg'] = '设备未激活,或不存在有效设备'
                 return Response(resp)
             decive_obj = random.choice(device_queryset)
-            pay = MakePay(user, order_money, real_money, channel, remark, order_id, decive_obj,notify_url)
+            pay = MakePay(user, order_money, real_money, channel, remark, order_id, decive_obj, notify_url)
             resp = pay.choose_pay()
             # if channel == 'atb':
             #     bank_queryet = ReceiveBankInfo.objects.filter(is_active=True, user_id=user.proxy_id)
@@ -513,9 +536,9 @@ class GetPayView(views.APIView):
             # resp['order_id'] = order_id
             # resp['add_time'] = str(order.add_time)
             # resp['channel'] = channel
-            return Response(resp,status=400)
+            return Response(resp, status=400)
         resp['msg'] = 'key匹配错误'
-        return Response(resp,status=400)
+        return Response(resp, status=400)
 
 
 class UserCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
@@ -554,10 +577,10 @@ class UserCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
                                                   user_id=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money')
-        success_money = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).aggregate(
+        success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1)|Q(pay_status=3)).count()
+        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
         if not all_money:
             all_money = 0
         if not success_money:
@@ -584,6 +607,7 @@ class UserChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
             add_time__gte=time.strftime('%Y-%m-%d', time.localtime()), user_id=self.request.user.id
         ).order_by('-add_time')
 
+
 @csrf_exempt
 def test(request):
     print('接收到的信息', request.body)
@@ -592,20 +616,20 @@ def test(request):
 
 class UserLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
-    permission_classes = (IsAuthenticated,IsUserOnly )
+    permission_classes = (IsAuthenticated, IsUserOnly)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
     filter_class = LogFilter
 
     def get_queryset(self):
-       return LogInfo.objects.filter(user_id=self.request.user.id).order_by('-add_time')
-
+        return LogInfo.objects.filter(user_id=self.request.user.id).order_by('-add_time')
 
     def get_serializer_class(self):
         if self.action == 'list':
             return AdminLogListInfoSerializer
         else:
             return AdminLogInfoSerializer
+
 
 def get_info(request):
     order_id = request.GET.get('id')
@@ -625,6 +649,7 @@ def get_info(request):
         resp['msg'] = '不存在相应订单号'
         code = 400
     return JsonResponse(data=resp, status=code)
+
 
 class QueryOrderView(views.APIView):
     def post(self, request):
@@ -656,6 +681,7 @@ class QueryOrderView(views.APIView):
                 return Response(resp)
         return Response(resp)
 
+
 @csrf_exempt
 def device_login(request):
     resp = {'msg': '操作成功'}
@@ -679,11 +705,68 @@ def device_login(request):
             code = 400
             resp['msg'] = '登录失败'
             return JsonResponse(resp, status=code)
-        # auth_code = device_obj.auth_code
+        auth_code = device_obj.auth_code
         code = 200
-        # resp['auth_code'] = auth_code
+        resp['auth_code'] = auth_code
         return JsonResponse(resp, status=code)
     else:
         code = 400
         resp['msg'] = '仅支持POST'
         return JsonResponse(resp, status=code)
+
+from utils import googletotp
+class UserGoogleBindViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                            mixins.UpdateModelMixin,mixins.CreateModelMixin):
+    permission_classes = (IsAuthenticated, IsUserOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        return UserProfile.objects.filter(id=user.id).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return GoogleOnlyUserInfoSerializer
+        return GoogleOnlyUserInfoSerializer
+
+    def get_object(self):
+        return self.request.user
+
+    def create(self, request, *args, **kwargs):
+        user = self.request.user
+        code = 201
+        resp={}
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        safe_code = serializer.validated_data.get('safe_code')
+        is_google = serializer.validated_data.get('is_google')
+        if make_md5(safe_code) == user.safe_code:
+            print('request.user.email',request.user.email)
+            # user.is_google=True
+            # user.save()
+            resp['msg'] = '谷歌验证绑定成功'
+            code = 200
+            base_32_secret = base64.b32encode(
+                codecs.decode(codecs.encode('{0:020x}'.format(random.getrandbits(80))), 'hex_codec'))
+            totp_obj = googletotp.TOTP(base_32_secret.decode("utf-8"))
+            qr_code = re.sub(r'=+$', '', totp_obj.provisioning_uri(request.user.username, issuer_name="Verfiy Code"))
+            key = str(base_32_secret, encoding="utf-8")
+            try:
+                g = Google2Auth()
+                g.user = user
+                g.key = key
+                g.save()
+                resp['qrcode'] = qr_code
+                return Response(data=resp, status=code)
+            except Exception:
+                resp['msg'] = '已生成'
+                code = 400
+                resp['qrcode'] = qr_code
+                return Response(data=resp, status=code)
+            # Google2Auth.objects.create(user=user)
+
+        else:
+            resp['msg']='操作码错误'
+            code = 400
+            return Response(data=resp, status=code)

@@ -22,7 +22,7 @@ from rest_framework_jwt.views import obtain_jwt_token
 route = DefaultRouter()
 from user.views import UserInfoViewset, UserOrderViewset, UserWithDrawViewset, UserWithDrawBankViewset, \
     UserCountViewset, UserCDataViewset, UserADataViewset, UserWDataViewset, GetPayView, UserCODataViewset, \
-    UserChartViewset, test,UserLogsViewset,get_info,QueryOrderView,device_login
+    UserChartViewset, test,UserLogsViewset,get_info,QueryOrderView,device_login,UserGoogleBindViewset
 
 # user
 route.register(r'user/info', UserInfoViewset, base_name="user/info")
@@ -36,6 +36,7 @@ route.register(r'user/adata', UserADataViewset, base_name="user/adata")
 route.register(r'user/codata', UserCODataViewset, base_name="user/codata")
 route.register(r'user/chart', UserChartViewset, base_name="user/chart")
 route.register(r'user/logs', UserLogsViewset, base_name="user/logs")
+route.register(r'user/googlebind', UserGoogleBindViewset, base_name="user/googlebind")
 
 # proxy
 from proxy.views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
@@ -66,7 +67,7 @@ route.register(r'proxy/devicechannel', ProxyDeviceChannelViewset, base_name="pro
 from spuser.views import AdminProxyViewset, AdminuserProxyViewset, AdminChannelViewset, AdminOrderViewset, \
     AdminWithDrawViewset, AdminNoticeViewset, AdminCountViewset, PublicChannelViewset, PublicNoticeViewset, \
     AdminCUserViewset, AdminDeleteViewset, AdminCDataViewset, AdminADataViewset, AdminWDataViewset, AdminCODataViewset, \
-    AdminChartViewset, AdminCUDataViewset,AdminRateInfoViewset,AdminLogsViewset
+    AdminChartViewset, AdminCUDataViewset,AdminRateInfoViewset,AdminLogsViewset,AdminPWDViewset
 
 route.register(r'admin/proxy', AdminProxyViewset, base_name="admin/proxy")
 route.register(r'admin/user', AdminuserProxyViewset, base_name="admin/user")
@@ -91,7 +92,7 @@ route.register(r'admin/logs', AdminLogsViewset, base_name="admin/logs")
 
 route.register(r'public/channel', PublicChannelViewset, base_name="public/channel")
 route.register(r'public/notice', PublicNoticeViewset, base_name="public/notice")
-
+route.register(r'public/pwd', AdminPWDViewset, base_name="public/pwd")
 # directly
 route.register(r'orderinfo', UpInfoOrderInfoViewset, base_name="orderinfo")
 route.register(r'verifys', VerifyViewset, base_name='verifys')  # 验证 手机揽收 后的信息

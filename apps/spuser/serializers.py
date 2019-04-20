@@ -62,14 +62,15 @@ class AdminProxyUpdateSerializer(serializers.ModelSerializer):
                                      style={'input_type': 'password'}, help_text='密码')
     password2 = serializers.CharField(label='密码', required=False, allow_blank=False, write_only=True, min_length=6,
                                       style={'input_type': 'password'}, help_text='密码')
-    # safe_code = serializers.CharField(label='操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
-    #                                   style={'input_type': 'password'}, help_text='密码')
-    # safe_code2 = serializers.CharField(label='操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
-    #                                    style={'input_type': 'password'}, help_text='密码')
-    # , 'safe_code', 'safe_code2'
+    original_safe_code = serializers.CharField(label='原始操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
+                                       style={'input_type': 'password'}, help_text='密码')
+    safe_code = serializers.CharField(label='操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
+                                      style={'input_type': 'password'}, help_text='密码')
+    safe_code2 = serializers.CharField(label='操作密码', required=False, allow_blank=False, write_only=True, min_length=6,
+                                       style={'input_type': 'password'}, help_text='密码')
     class Meta:
         model = UserProfile
-        fields = ['password', 'password2']
+        fields = ['password', 'password2','original_safe_code','safe_code','safe_code2',]
 
 
 class AdminProxyCreateSerializer(serializers.ModelSerializer):
@@ -192,8 +193,10 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
     #     return user_obj.username
 
     def get_device(self, instance):
-        device_obj = DeviceInfo.objects.filter(id=instance.device_id)[0]
-        return device_obj.device_name
+        device_queryset = DeviceInfo.objects.filter(id=instance.device_id)
+        if device_queryset:
+            return device_queryset[0].device_name
+        return '暂无绑定设备'
 
     def get_channel(self, instance):
         channel_obj = channelInfo.objects.filter(id=instance.channel_id)[0]

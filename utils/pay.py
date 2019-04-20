@@ -81,15 +81,16 @@ class MakePay(object):
             order = OrderInfo()
             order.user_id = self.user.id
             order.channel_id = 2
-            order.device_id = self.decive_obj.id
+            # order.device_id = self.decive_obj.id
             # order.order_no = order_no
             order.pay_status = 0
-            # order.real_money = self.real_money
+            order.real_money = self.real_money
             order.order_money = self.order_money
             order.remark = self.remark
             order.order_id = self.order_id
             order.receive_way = '0'
             order.notify_url = self.notify_url
+            order.proxy = self.user.proxy_id
             order.save()
             resp['msg'] = '创建成功'
             resp['code'] = 200

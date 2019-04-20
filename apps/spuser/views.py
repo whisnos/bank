@@ -70,9 +70,9 @@ class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         resp = {'msg': []}
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        password=serializer.validated_data.get('password')
+        password = serializer.validated_data.get('password')
         password2 = serializer.validated_data.get('password2', '')
-        print('password',password)
+        print('password', password)
         if password:
             if password == password2:
                 user.set_password(password)
@@ -81,9 +81,10 @@ class AdminProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
                 serializer = AdminUserDetailSerializer(user)
                 return Response(data=serializer.data, status=code)
 
-        code=400
-        resp['msg']='修改失败'
+        code = 400
+        resp['msg'] = '修改失败'
         return Response(data=resp, status=code)
+
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
         proxy_user = self.request.user
@@ -149,15 +150,15 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         remark = serializer.validated_data.get('remark')
         is_active = serializer.validated_data.get('is_active', '')
         proxy_q = UserProfile.objects.filter(id=user.proxy_id)
-        print(type(user.total_money),99)
+        print(type(user.total_money), 99)
         if not proxy_q:
             code = 400
             resp['msg'] = '对应代理不存在'
             return Response(data=resp, status=code)
         proxy_user = proxy_q[0]
-        log=MakeLogs()
+        log = MakeLogs()
         if add_money:
-            print('add_money',add_money)
+            print('add_money', add_money)
             # user.total_money = '%.2f' % (Decimal(user.total_money) + add_money)
             # user.money = '%.2f' % (Decimal(user.total_money) + add_money)
             user.total_money = ((user.total_money) + add_money)
@@ -176,12 +177,12 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
             user.save()
             proxy_user.save()
         if desc_money:
-            print(type(desc_money),type(user.total_money))
+            print(type(desc_money), type(user.total_money))
             if desc_money <= (user.total_money) and (proxy_user.total_money) >= desc_money:
                 # user.total_money = '%.2f' % (Decimal(user.total_money) - desc_money)
                 # user.money = '%.2f' % (user.money - desc_money)
-                user.total_money =  ((user.total_money) - desc_money)
-                user.money =  (user.money - desc_money)
+                user.total_money = ((user.total_money) - desc_money)
+                user.money = (user.money - desc_money)
                 # 加日志
                 if not remark:
                     remark = '无备注！'
@@ -302,6 +303,7 @@ class AdminOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.R
             "notify_url",
         ]
     }
+
     def get_queryset(self):
         user = self.request.user
         return OrderInfo.objects.all().order_by('-add_time')  # .order_by('-add_time')
@@ -623,7 +625,7 @@ class AdminDeleteViewset(mixins.DestroyModelMixin, viewsets.GenericViewSet, mixi
         new_key = make_md5(safe_code)
         if new_key == user.safe_code:
             if dele_type == 'order':
-                order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time),proxy=proxy_id)
+                order_queryset = OrderInfo.objects.filter(add_time__range=(s_time, e_time), proxy=proxy_id)
             # elif dele_type == 'money':
             #     order_queryset = WithDrawInfo.objects.filter(add_time__range=(s_time, e_time))
             # elif dele_type == 'log':
@@ -874,7 +876,7 @@ class AdminCODataViewset(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
                 code = 400
                 resp['msg'] = 'channelid参数错误'
                 return Response(data=resp, status=code)
-            order_queryset=order_queryset.filter(channel_id=channelid)
+            order_queryset = order_queryset.filter(channel_id=channelid)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money')
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
@@ -976,13 +978,16 @@ class AdminChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
             add_time__gte=time.strftime('%Y-%m-%d', time.localtime()),
         ).order_by('-add_time')
 
-class AdminRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):
+
+class AdminRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                           mixins.UpdateModelMixin):
     permission_classes = (IsAdminUser,)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
 
     filter_backends = (DjangoFilterBackend,)
     filter_class = RateInfoFilter
+
     # filter_backends = (SearchFilter,)
     # search_fields = ('title', "content")
 
@@ -998,7 +1003,7 @@ class AdminRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
 class AdminLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
     # serializer_class = LogInfoSerializer
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
-    permission_classes = (IsAdminUser, )
+    permission_classes = (IsAdminUser,)
     pagination_class = UserListPagination
     filter_backends = (DjangoFilterBackend,)
     filter_class = LogFilter
@@ -1014,3 +1019,66 @@ class AdminLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             return AdminLogListInfoSerializer
         else:
             return AdminLogInfoSerializer
+
+
+class AdminPWDViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                      mixins.UpdateModelMixin):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = AdminProxyFilter
+
+    def get_queryset(self):
+        user = self.request.user
+        return UserProfile.objects.filter(id=user.id).order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return AdminProxyUpdateSerializer
+        return AdminUserDetailSerializer
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        user = self.get_object()
+        resp={}
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        password = self.request.data.get('password')
+        password2 = self.request.data.get('password2')
+        auth_code = serializer.validated_data.get('auth_code')
+        original_safe_code = self.request.data.get('original_safe_code')
+        safe_code = self.request.data.get('safe_code')
+        safe_code2 = self.request.data.get('safe_code2')
+        code = 400
+        if password:
+            if password == password2:
+                user.set_password(password)
+                user.save()
+                resp['pwd']='密码修改成功'
+                code = 200
+            elif password != password2:
+                resp['pwd'] = '密码不一致'
+                code = 400
+        if auth_code:
+            user.auth_code = make_auth_code()
+            user.save()
+            resp['auth_code'] = '授权码修改成功'
+        if original_safe_code:
+            if make_md5(original_safe_code) == user.safe_code:
+                if safe_code == safe_code2:
+                    if safe_code:
+                        safe_code = make_md5(safe_code)
+                        user.safe_code = safe_code
+                        user.save()
+                        resp['safe_code'] = '安全码修改成功'
+                        code = 200
+                else:
+                    resp['safe_code'] = '安全码输入不一致'
+                    code = 400
+            else:
+                resp['safe_code'] = '原始安全码输入不一致'
+                code = 400
+        return Response(data=resp, status=code)
