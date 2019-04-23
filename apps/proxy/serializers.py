@@ -62,7 +62,6 @@ class UpdateRateInfoSerializer(serializers.ModelSerializer):
     rate = serializers.DecimalField(max_digits=4, decimal_places=3, required=False)
     is_map = serializers.BooleanField(required=False)
     mapid = serializers.IntegerField(required=False)
-
     def validate(self, attrs):
         print("attrs.get('is_map')", attrs.get('is_map'))
         if str(attrs.get('is_map')) not in ['True', 'False', 'None']:
@@ -375,7 +374,7 @@ class ProxyReceiveBankInfoUpdateDetailSerializer(serializers.ModelSerializer):
 
 class ProxyReceiveBankCreDetailSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    username = serializers.CharField(label='用户名', required=True, min_length=1, max_length=20, allow_blank=False,
+    username = serializers.CharField(label='收款人姓名', required=True, min_length=1, max_length=20, allow_blank=False,
                                      help_text='用户名')
     card_number = serializers.CharField(required=True, validators=[
         UniqueValidator(queryset=ReceiveBankInfo.objects.all(), message='卡号不能重复')
@@ -733,3 +732,23 @@ class VerifyPaySerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderInfo
         fields = '__all__'
+
+
+class DeviceReceiveBankCreDetailSerializer(serializers.ModelSerializer):
+    # user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    username = serializers.CharField(label='收款人姓名', required=True, min_length=1, max_length=20, allow_blank=False,
+                                     help_text='用户名')
+    card_number = serializers.CharField(required=True, validators=[
+        UniqueValidator(queryset=ReceiveBankInfo.objects.all(), message='卡号不能重复')
+    ], label='银行卡号')
+    bank_type = serializers.CharField(required=True, label='银行类型')
+    bank_mark = serializers.CharField(required=True, label='银行编号')
+    bank_tel = serializers.CharField(required=True, label='银行电话')
+    card_index = serializers.CharField(required=True, label='卡索引')
+    # device = serializers.IntegerField(required=True, label='设备id')
+    def validate(self, attrs):
+        print('attrs',attrs)
+        return attrs
+    class Meta:
+        model = ReceiveBankInfo
+        fields = ['username', 'card_number', 'bank_type', 'bank_mark', 'bank_tel', 'card_index']

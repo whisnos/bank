@@ -14,7 +14,7 @@ from user.models import UserProfile
 
 
 class RateInfo(models.Model):
-    rate = models.DecimalField(max_digits=4, decimal_places=3, verbose_name='费率')
+    rate = models.DecimalField(max_digits=4, decimal_places=3,default=0.015, verbose_name='费率')
     user = models.ForeignKey(UserProfile, verbose_name='用户', on_delete=models.CASCADE)
     channel = models.ForeignKey(channelInfo, verbose_name='通道', on_delete=models.CASCADE)
     is_map = models.BooleanField(default=False, verbose_name='是否映射')
@@ -27,7 +27,7 @@ class RateInfo(models.Model):
     class Meta:
         verbose_name = '费率管理'
         verbose_name_plural = verbose_name
-
+        unique_together=['user','channel']
 
 class DeviceInfo(models.Model):
     device_name = models.CharField(max_length=25, unique=True, verbose_name='设备名称')

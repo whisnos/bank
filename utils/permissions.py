@@ -2,6 +2,11 @@ from rest_framework import permissions
 
 
 # from user.models import OperateLog
+from rest_framework.authentication import BaseAuthentication
+from rest_framework_jwt.authentication import BaseJSONWebTokenAuthentication, JSONWebTokenAuthentication
+from rest_framework_jwt.serializers import jwt_get_username_from_payload
+
+from proxy.models import DeviceInfo
 from spuser.models import LogInfo
 
 
@@ -36,6 +41,8 @@ def jwt_response_payload_handler(token, user=None, request=None):
         'token': token,
         'username': user.username,
         'level': user.level,
+        # 'id': user.id,
+        # 'auth_code': user.auth_code,
     }
 
 
@@ -70,3 +77,47 @@ class IsUserOnly(permissions.BasePermission):
             return True
         else:
             return False
+class IsDeviceOnly(permissions.BasePermission):
+    """
+    Object-level permission to only allow owners of an object to edit it.
+    Assumes the model instance has an `owner` attribute.
+    """
+
+    def has_permission(self, request, view):
+        # print('self',dir(self))
+        # print('2',dir(request),request.data)
+        username=request.data.get('username')
+        d_queryset=DeviceInfo.objects.filter(device_name=username)
+        if d_queryset:
+            return True
+        else:
+            return False
+
+from rest_framework import exceptions
+from django.utils.translation import ugettext as _
+class XXXToken(JSONWebTokenAuthentication,BaseJSONWebTokenAuthentication):
+    def authenticate_credentials(self, payload):
+        """
+        Returns an active user that matches the payload's user id and email.
+        """
+        # User = get_user_model()
+        # User = get_deviceinfo_model()
+        User = DeviceInfo
+        username = jwt_get_username_from_payload(payload)
+
+        if not username:
+            msg = _('Invalid payload.')
+            raise exceptions.AuthenticationFailed(msg)
+
+        try:
+            user = User.objects.get_by_natural_key(username)
+        except User.DoesNotExist:
+            msg = _('Invalid signature.')
+            raise exceptions.AuthenticationFailed(msg)
+
+        if not user.is_active:
+            msg = _('User account is disabled.')
+            raise exceptions.AuthenticationFailed(msg)
+
+        return user
+

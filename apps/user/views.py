@@ -7,6 +7,8 @@ import re
 import time
 from decimal import Decimal
 
+import jwt
+from django.contrib.auth.backends import ModelBackend
 from django.db.models import Sum, Q
 from django.http import HttpResponse, JsonResponse, Http404
 from django.shortcuts import render
@@ -19,6 +21,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
+from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 
 from bank.settings import CLOSE_TIME, FONT_DOMAIN
 from proxy.filters import WithDrawFilter, WithDrawBankFilter
@@ -37,6 +40,42 @@ from utils.make_code import make_auth_code, make_md5, generate_order_no, make_sh
 from utils.pay import MakePay
 from utils.permissions import IsUserOnly, MakeLogs
 
+class CustomModelBackend(ModelBackend):
+    def authenticate(self, request, username=None, password=None, type=None, **kwargs):
+        print(999)
+        '''if request.META.get('HTTP_X_FORWARDED_FOR', ''):
+            print('HTTP_X_FORWARDED_FOR')
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        else:
+            print('REMOTE_ADDR')
+            ip = request.META.get('REMOTE_ADDR', '')
+        '''
+        # print('request',dir(self))
+        # if request.META.get('HTTP_X_FORWARDED_FOR', ''):
+        #     print('HTTP_X_FORWARDED_FOR')
+        #     ip = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        # else:
+        #     ip = request.META.get('REMOTE_ADDR', '')
+        #     print('REMOTE_ADDR',ip)
+        user = UserProfile.objects.filter(username=username).first() or DeviceInfo.objects.filter(device_name=username).first()
+        try:
+            if user.level:
+                if user.check_password(password):
+                    return user
+                else:
+                    print(666)
+                    return None
+        except Exception as e:
+            try:
+                if user.is_active:
+                    if user.password == password:
+                        print('设备登录成功', user.id)
+                        userid = user.user_id
+                        user1 = UserProfile.objects.get(id=userid)
+                        return user1
+                return None
+            except Exception as e:
+                return None
 
 class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                       mixins.UpdateModelMixin):
@@ -156,7 +195,6 @@ class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
 
     def create(self, request, *args, **kwargs):
         resp = {'msg': []}
-        print(1)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         proxy_user = self.request.user
@@ -166,21 +204,17 @@ class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
         bankid = validated_data.get('bank')
         safe_code = validated_data.get('safe_code')
         googel_code = validated_data.get('googel_code')
-        print(9,googel_code)
         if proxy_user.is_google:
-            print(1)
             try:
                 # 判断用户是否已经绑定Google令牌
                 key = Google2Auth.objects.get(user_id=self.request.user.id).key
-                print(2,key)
             except:
                 raise Http404("未绑定令牌")
             if not Google_Verify_Result(key, googel_code):
                 # 验证令牌
-                return Response({"success": True, "msg": "令牌失效", "results": None}, status=400)
-            print('5566')
+                return Response({"msg": "令牌失效"}, status=400)
+
         if make_md5(safe_code) == proxy_user.safe_code:
-            print(666)
             with_banklist = [wd.id for wd in WithDrawBankInfo.objects.filter(user_id=proxy_user.id)]
             if bankid in with_banklist:
                 # 更新商户余额
@@ -706,8 +740,17 @@ def device_login(request):
             resp['msg'] = '登录失败'
             return JsonResponse(resp, status=code)
         auth_code = device_obj.auth_code
+        payload={
+            "id":device_obj.id,
+            "devicename":device_obj.device_name,
+            "auth_code": device_obj.auth_code,
+            "exp": int(time.time()) + 86400,
+        }
+        token = jwt.encode(payload, 'secret', algorithm='HS256')
         code = 200
+        resp['id'] = device_obj.id
         resp['auth_code'] = auth_code
+        resp['token'] = token.decode('utf8')
         return JsonResponse(resp, status=code)
     else:
         code = 400
@@ -735,34 +778,31 @@ class UserGoogleBindViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
 
     def create(self, request, *args, **kwargs):
         user = self.request.user
-        code = 201
         resp={}
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         safe_code = serializer.validated_data.get('safe_code')
-        is_google = serializer.validated_data.get('is_google')
         if make_md5(safe_code) == user.safe_code:
-            print('request.user.email',request.user.email)
-            # user.is_google=True
-            # user.save()
             resp['msg'] = '谷歌验证绑定成功'
-            code = 200
+            code = 201
             base_32_secret = base64.b32encode(
                 codecs.decode(codecs.encode('{0:020x}'.format(random.getrandbits(80))), 'hex_codec'))
             totp_obj = googletotp.TOTP(base_32_secret.decode("utf-8"))
-            qr_code = re.sub(r'=+$', '', totp_obj.provisioning_uri(request.user.username, issuer_name="Verfiy Code"))
+            qr_code = re.sub(r'=+$', '', totp_obj.provisioning_uri(request.user.username, issuer_name="帅气的验证码"))
             key = str(base_32_secret, encoding="utf-8")
             try:
                 g = Google2Auth()
                 g.user = user
                 g.key = key
                 g.save()
+                user.is_google=True
+                user.save()
+                resp['key'] = key
                 resp['qrcode'] = qr_code
                 return Response(data=resp, status=code)
             except Exception:
-                resp['msg'] = '已生成'
+                resp['msg'] = '令牌已绑定'
                 code = 400
-                resp['qrcode'] = qr_code
                 return Response(data=resp, status=code)
             # Google2Auth.objects.create(user=user)
 
@@ -770,3 +810,41 @@ class UserGoogleBindViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
             resp['msg']='操作码错误'
             code = 400
             return Response(data=resp, status=code)
+
+@csrf_exempt
+def login(request):
+    resp = {'msg': '操作成功'}
+    if request.method == 'POST':
+        result = request.body
+        try:
+            dict_result = json.loads(result)
+        except Exception:
+            code = 400
+            resp['msg'] = '请求方式错误,请用json格式传参'
+            return JsonResponse(resp, status=code)
+        username = dict_result.get('username')
+        password = dict_result.get('password')
+        user_queryset = UserProfile.objects.filter(username=username)
+        if not user_queryset:
+            code = 400
+            resp['msg'] = '登录失败'
+            return JsonResponse(resp, status=code)
+        user = user_queryset[0]
+        if user.check_password(password):
+            payload = jwt_payload_handler(user)
+            token=jwt_encode_handler(payload)
+            code = 200
+            resp['msg'] = '登录成功'
+            resp['token'] = token
+            resp['level'] = user.level
+            resp['username'] = user.username
+            return JsonResponse(resp, status=code)
+    #     auth_code = device_obj.auth_code
+    #     code = 200
+    #     resp['id'] = device_obj.id
+    #     resp['auth_code'] = auth_code
+    #     return JsonResponse(resp, status=code)
+    else:
+        code = 400
+        resp['msg'] = '仅支持POST'
+        return JsonResponse(resp, status=code)

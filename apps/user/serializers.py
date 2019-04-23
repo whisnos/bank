@@ -37,7 +37,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['id', 'username', 'level', 'uid', 'auth_code', 'money', 'add_time', 'is_active', 'mobile', 'web_url',
-                  'proxy_id']
+                  'proxy_id','is_google']
 
 
 class UpdateUserInfoSerializer(serializers.ModelSerializer):
@@ -484,7 +484,7 @@ class OrderGetSerializer(serializers.ModelSerializer):
 
 class GoogleOnlyUserInfoSerializer(serializers.ModelSerializer):
     safe_code=serializers.CharField(required=True,write_only=True)
-    is_google=serializers.BooleanField(required=True,write_only=True)
+    # is_google=serializers.BooleanField(required=True,write_only=True)
     class Meta:
         model = UserProfile
-        fields = ['safe_code','is_google']
+        fields = ['safe_code']

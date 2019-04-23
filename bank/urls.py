@@ -22,7 +22,7 @@ from rest_framework_jwt.views import obtain_jwt_token
 route = DefaultRouter()
 from user.views import UserInfoViewset, UserOrderViewset, UserWithDrawViewset, UserWithDrawBankViewset, \
     UserCountViewset, UserCDataViewset, UserADataViewset, UserWDataViewset, GetPayView, UserCODataViewset, \
-    UserChartViewset, test,UserLogsViewset,get_info,QueryOrderView,device_login,UserGoogleBindViewset
+    UserChartViewset, test, UserLogsViewset, get_info, QueryOrderView, device_login, UserGoogleBindViewset, login
 
 # user
 route.register(r'user/info', UserInfoViewset, base_name="user/info")
@@ -42,7 +42,8 @@ route.register(r'user/googlebind', UserGoogleBindViewset, base_name="user/google
 from proxy.views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderInfoViewset, ProxyWithDrawViewset, \
     ProxyDeviceViewset, ProxyReceiveBankViewset, ProxyCountViewset, ProxyCDatatViewset, ProxyADataViewset, \
     ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset, \
-    ProxyRealDeviceViewset, ProxyLogsViewset, UpInfoOrderInfoViewset,ProxyDeviceChannelViewset,VerifyViewset
+    ProxyRealDeviceViewset, ProxyLogsViewset, UpInfoOrderInfoViewset, ProxyDeviceChannelViewset, VerifyViewset, \
+    DeviceReceiveBankViewset
 
 route.register(r'proxy/user', ProxyUserInfoViewset, base_name="proxy/info")
 route.register(r'proxy/rateinfo', ProxyRateInfoViewset, base_name="proxy/rateinfo")
@@ -96,6 +97,8 @@ route.register(r'public/pwd', AdminPWDViewset, base_name="public/pwd")
 # directly
 route.register(r'orderinfo', UpInfoOrderInfoViewset, base_name="orderinfo")
 route.register(r'verifys', VerifyViewset, base_name='verifys')  # 验证 手机揽收 后的信息
+route.register(r'addbank', DeviceReceiveBankViewset, base_name='addbank')  # 验证 手机揽收 后的信息
+
 urlpatterns = [
     url(r'^', include(route.urls)),
     url(r'^user/', include('user.urls')),
@@ -103,7 +106,8 @@ urlpatterns = [
     url(r'^admin/', include('spuser.urls')),
     url(r'^public/', include('spuser.url')),
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    url(r'^login/$', obtain_jwt_token),
+    # url(r'^login/$', obtain_jwt_token),
+    url(r'^login/$', login,name='login'),
     url(r'^get_pay/$', GetPayView.as_view(), name="get_pay"),
     url(r'^test/$', test, name='test'),
     url(r'^get_info/$', get_info, name='get_info'),

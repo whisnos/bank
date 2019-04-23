@@ -151,3 +151,10 @@ DEFAULT_RATE=0.015
 
 # 验证动态key
 SECRET_VERIFY = '@#$@!bfpay#(&'
+
+
+# 自定义ModelBackend Q登录
+AUTHENTICATION_BACKENDS = (
+    'user.views.CustomModelBackend',
+
+)

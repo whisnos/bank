@@ -7,7 +7,8 @@ from django.http import HttpResponse, JsonResponse
 from rest_framework.response import Response
 
 from bank.settings import FONT_DOMAIN
-from proxy.models import ReceiveBankInfo
+from channel.models import channelInfo
+from proxy.models import ReceiveBankInfo, RateInfo
 from trade.models import OrderInfo
 from user.models import UserProfile
 from utils.make_code import make_short_code
@@ -27,7 +28,30 @@ class MakePay(object):
     def choose_pay(self):
         resp = {}
         if self.channel == 'atb':
-            bank_queryet = ReceiveBankInfo.objects.filter(is_active=True, user_id=self.user.proxy_id)
+            channel_queryset=channelInfo.objects.filter(channel_name='atb')
+            if not channel_queryset:
+                resp['msg'] = '通道未开通，无法创建订单'
+                return resp
+            channel_id=channel_queryset[0].id
+            # rateinfo_queryset=RateInfo.objects.filter(user_id=self.user.id,is_active=True,)
+            # if not rateinfo_queryset:
+            #     resp['msg'] = '通道未开通，无法创建订单'
+            #     return resp
+            R_queryset = RateInfo.objects.filter(user_id=self.user.id, is_active=True, is_map=True,
+                                                 channel_id=channel_id)
+            if R_queryset:
+                mapid = R_queryset[0].mapid
+                new_queryset = RateInfo.objects.filter(id=mapid)
+                channel_id = new_queryset[0].channel_id
+            else:
+                RR_queryset = RateInfo.objects.filter(user_id=self.user.id, is_active=True, channel_id=channel_id)
+                if not RR_queryset and len(R_queryset) != 1:
+                    resp['msg'] = '找不到对应费率'
+                    code = 404
+                    return Response(data=resp, status=code)
+                else:
+                    channel_id = RR_queryset[0].channel_id
+            bank_queryet = ReceiveBankInfo.objects.filter(is_active=True, user_id=self.user.proxy_id,device=self.decive_obj.id)
             if not bank_queryet:
                 resp['msg'] = '收款商户未激活,或不存在有效收款卡'
                 return resp
@@ -52,7 +76,7 @@ class MakePay(object):
                     break
             order = OrderInfo()
             order.user_id = self.user.id
-            order.channel_id = 1
+            order.channel_id = channel_id
             order.device_id = self.decive_obj.id
             order.proxy = self.user.proxy_id
             order.order_no = order_no

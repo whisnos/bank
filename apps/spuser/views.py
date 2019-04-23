@@ -19,7 +19,7 @@ from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
 from channel.models import channelInfo
 from proxy.filters import WithDrawFilter
-from proxy.models import RateInfo
+from proxy.models import RateInfo, DeviceInfo, DeviceChannelInfo
 from proxy.views import UserListPagination
 from spuser.filters import AdminProxyFilter, AdminOrderFilter, AdminChannelFilter, LogFilter, RateInfoFilter
 from spuser.models import NoticeInfo, LogInfo
@@ -31,7 +31,7 @@ from spuser.serializers import AdminUserDetailSerializer, AdminProxyCreateSerial
     AdminCCRetrieveSerializer, AdminRateInfoDetailSerializer, AdminRateInfoListDetailSerializer, \
     AdminRateInfoputDetailSerializer, AdminLogListInfoSerializer, AdminLogInfoSerializer
 from trade.models import OrderInfo, WithDrawInfo
-from user.models import UserProfile
+from user.models import UserProfile, Google2Auth
 from utils.make_code import make_uuid_code, make_auth_code, make_md5
 from utils.permissions import IsOwnerOrReadOnly, MakeLogs
 
@@ -149,6 +149,7 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
         desc_money = serializer.validated_data.get('desc_money')
         remark = serializer.validated_data.get('remark')
         is_active = serializer.validated_data.get('is_active', '')
+        is_google = serializer.validated_data.get('is_google', '')
         proxy_q = UserProfile.objects.filter(id=user.proxy_id)
         print(type(user.total_money), 99)
         if not proxy_q:
@@ -218,6 +219,17 @@ class AdminuserProxyViewset(mixins.ListModelMixin, viewsets.GenericViewSet,
                 user.is_active = is_active
             if is_active == False:
                 user.is_active = is_active
+        if str(is_google):
+            if is_google:
+                pass
+                # user.is_active = is_active
+            if is_google == False:
+                user.is_google = is_google
+                user.save()
+                g_q = Google2Auth.objects.filter(user_id=user.id)
+                if g_q:
+                    g_q[0].delete()
+
         user.save()
         serializer = AdminUserDetailSerializer(user)
         return Response(data=serializer.data, status=code)
@@ -267,6 +279,18 @@ class AdminChannelViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
         channel = channelInfo.objects.create(**validated_data)
+        user_all=UserProfile.objects.all()
+        for u in user_all:
+            r=RateInfo()
+            r.channel_id=channel.id
+            r.user_id=u.id
+            r.save()
+        device_all=DeviceInfo.objects.all()
+        for d in device_all:
+            dc=DeviceChannelInfo()
+            dc.channel_id=channel.id
+            dc.device_id=d.id
+            dc.save()
         code = 200
         resp['msg'] = '创建成功'
         serializer = AdminChannelDetailSerializer(channel)
@@ -1043,7 +1067,7 @@ class AdminPWDViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
 
     def update(self, request, *args, **kwargs):
         user = self.get_object()
-        resp={}
+        resp = {}
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         password = self.request.data.get('password')
@@ -1057,7 +1081,7 @@ class AdminPWDViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Ret
             if password == password2:
                 user.set_password(password)
                 user.save()
-                resp['pwd']='密码修改成功'
+                resp['pwd'] = '密码修改成功'
                 code = 200
             elif password != password2:
                 resp['pwd'] = '密码不一致'
