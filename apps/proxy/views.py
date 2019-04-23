@@ -7,6 +7,7 @@ from decimal import Decimal
 import jwt
 import requests
 from django.db.models import Sum, Q
+from django.http import JsonResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_renderer_xlsx.renderers import XLSXRenderer
 from rest_framework import viewsets, mixins, renderers
@@ -210,13 +211,15 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         serializer.is_valid(raise_exception=True)
         rate = self.request.data.get('rate', '')
         is_map = serializer.validated_data.get('is_map', '')
-        mapid = self.request.data.get('mapid', '')
+        mapid = serializer.validated_data.get('mapid', '')
         # 代理 修改 商户
         if rate:
             rate_obj.rate = rate
             rate_obj.save()
         if str(is_map):
+            print(1)
             if is_map:
+                print(2)
                 if mapid:
                     user = UserProfile.objects.filter(id=rate_obj.user_id)[0]
                     r_list = [r.id for r in RateInfo.objects.filter(user_id=user.id, is_active=True)]
@@ -233,8 +236,9 @@ class ProxyRateInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
                     resp['msg'] = '映射ip必传'
                     return Response(data=resp, status=code)
             if is_map == False:
+                print(3)
                 rate_obj.is_map = is_map
-                rate_obj.mapid = ''
+                rate_obj.mapid = 0
             rate_obj.save()
             print(6)
         serializer = ProxyRateInfoDetailSerializer(rate_obj)
@@ -300,6 +304,7 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         return ProxyWithDrawInfoDetailSerializer
 
     def update(self, request, *args, **kwargs):
+        user=self.request.user
         resp = {'msg': []}
         withdraw_obj = self.get_object()
         code = 201
@@ -312,6 +317,13 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
             withdraw_obj.remark = remark
         if str(withdraw_status):
             if withdraw_status in [0, 1, 2]:
+                if withdraw_status == 2:
+                    userid=withdraw_obj.user_id
+                    shang_user=UserProfile.objects.filter(id=userid)[0]
+                    shang_user.money=shang_user.money+withdraw_obj.withdraw_money
+                    user.money=user.money+withdraw_obj.withdraw_money
+                    shang_user.save()
+                    user.save()
                 withdraw_obj.withdraw_status = withdraw_status
                 withdraw_obj.receive_time = datetime.datetime.now()
             else:
@@ -535,16 +547,24 @@ class ProxyCDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         order_queryset = OrderInfo.objects.filter(
             add_time__range=(s_time, e_time),
             proxy=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
+        print('order_queryset',order_queryset)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money')
+        print('all_money',all_money)
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
+        order_queryset = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3))
+        success_num = order_queryset.count()
+        service_money = order_queryset.aggregate(
+            service_money=Sum('service_money')).get('service_money')
+        if not service_money:
+            service_money = 0
+        resp['service_money'] = service_money
         if not all_money:
             all_money = 0
         if not success_money:
-            all_money = 0
+            success_money = 0
         # user_queryset = UserProfile.objects.filter(proxy_id=self.request.user.id)
         # user_list=[d.id for d in user_queryset]
         # # 总金额
@@ -1064,21 +1084,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
             device_queryset = DeviceInfo.objects.filter(auth_code=auth_code, is_active=True)
             if device_queryset:
                 device_obj = device_queryset[0]
-                bank_queryset = ReceiveBankInfo.objects.filter(user_id=user.id, bank_tel=bank_tel,
-                                                        device=device_obj.id)
-                if not bank_queryset:
-                    code = 404
-                    resp['msg'] = '银行卡不存在，联系管理员处理'
-                    return Response(data=resp, status=code)
-                elif len(bank_queryset) == 1:
-                    bank_obj = bank_queryset[0]
-                    print(bank_obj.card_number)
-                else:
-                    resp['msg'] = '存在多张银行卡，需手动处理'
-                    code = 404
-                    return Response(data=resp, status=code)
-                order_queryset = OrderInfo.objects.filter(pay_status=0, real_money=money,
-                                                          account_num=bank_obj.card_number)
+                order_queryset = OrderInfo.objects.filter(pay_status=0, real_money=money,device=device_obj.id)
                 if not order_queryset:
                     code = 404
                     resp['msg'] = '订单不存在，联系管理员处理'
@@ -1089,38 +1095,16 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                     resp['msg'] = '存在多笔订单，需手动处理'
                     code = 404
                     return Response(data=resp, status=code)
-            # order_q=OrderInfo.objects.filter(proxy=user.id,order_no=order_no)
-            # if order_q:
-            #     bank_queryset = ReceiveBankInfo.objects.filter(user_id=user.id,card_number=order_q[0].account_num)
-            #     if not bank_queryset:
-            #         code = 404
-            #         resp['msg'] = '银行卡不存在，联系管理员处理'
-            #         return Response(data=resp, status=code)
-                # elif len(bank_queryset) == 1:
-                #     bank_obj = bank_queryset[0]
-                #     print(bank_obj.card_number)
-                # else:
-                #     resp['msg'] = '存在多张银行卡，需手动处理'
-                #     code = 404
-                #     return Response(data=resp, status=code)
-
-                # order_queryset = OrderInfo.objects.filter(pay_status=0, real_money=money,
-                #                                           account_num=bank_obj.card_number)
-                # if not order_queryset:
-                #     code = 404
-                #     resp['msg'] = '订单不存在，联系管理员处理'
-                #     return Response(data=resp, status=code)
-                # elif len(order_queryset) == 1:
-                #     order_obj = order_queryset[0]
-                # else:
-                #     resp['msg'] = '存在多笔订单，需手动处理'
-                #     code = 404
-                #     return Response(data=resp, status=code)
-                # order_obj=order_q[0]
+                bank_queryset = ReceiveBankInfo.objects.filter(card_number=order_obj.account_num)
+                if not bank_queryset:
+                    code = 404
+                    resp['msg'] = '银行卡不存在，联系管理员处理'
+                    return Response(data=resp, status=code)
                 # 加密顺序 money + bank_tel + auth_code + SECRET_VERIFY
                 new_temp = str(money) + str(bank_tel) + str(auth_code) + SECRET_VERIFY
                 my_key = make_md5(new_temp)
-                if key == key:
+                print('my_key',my_key)
+                if key.lower() == my_key:
                     order_obj.pay_status = 1
                     order_obj.pay_time = datetime.datetime.now()
                     print('订单状态处理成功！！！！！！！！！！！！！！！！！！！！！！！')
@@ -1362,3 +1346,41 @@ class DeviceReceiveBankViewset(viewsets.GenericViewSet,
         r = ReceiveBankInfo.objects.create(**vali_data)
         serializer = ProxyReceiveBankInfoDetailSerializer(r)
         return Response(data=serializer.data, status=200)
+
+def mobile_pay(request):
+    order_id = request.GET.get('id')
+    print('order_id', order_id)
+    resp = {}
+    if order_id:
+
+        # 关闭超时订单
+        now_time = datetime.datetime.now() - datetime.timedelta(minutes=CLOSE_TIME)
+        OrderInfo.objects.filter(pay_status=0, add_time__lte=now_time).update(
+            pay_status=2)
+
+        order_queryset = OrderInfo.objects.filter(pay_status=0, order_no=order_id)
+        if order_queryset:
+            print(2)
+            order_obj = order_queryset[0]
+            account_num = order_obj.account_num
+            bank_qset = ReceiveBankInfo.objects.filter(card_number=account_num)
+            if bank_qset:
+                print(1)
+                bank_obj = bank_qset[0]
+                resp['msg'] = '操作成功'
+                resp['money'] = order_obj.real_money
+                resp['card_index'] = bank_obj.card_index
+                resp['name'] = bank_obj.username
+                resp['bank_mark'] = bank_obj.bank_mark
+                return JsonResponse(data=resp, status=200)
+            else:
+                resp['msg'] = '银行卡不存在'
+                return JsonResponse(data=resp, status=400)
+
+        else:
+            resp['msg'] = '订单不存在'
+            return JsonResponse(data=resp, status=400)
+
+    else:
+        resp['msg'] = '订单不存在'
+        return JsonResponse(data=resp, status=400)

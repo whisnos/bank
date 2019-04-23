@@ -185,7 +185,7 @@ class UserWithDrawCreateSerializer(serializers.ModelSerializer):
     bank = serializers.IntegerField(required=True, help_text='银行卡id')
     withdraw_money = serializers.IntegerField(write_only=True,required=True)
     safe_code = serializers.CharField(write_only=True,required=True)
-    googel_code = serializers.CharField(write_only=True,required=True)
+    googel_code = serializers.CharField(write_only=True,required=False,allow_null=True,allow_blank=True)
     def validate(self, attrs):
         user = self.context['request'].user
         user_money = user.money

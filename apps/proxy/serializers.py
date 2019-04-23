@@ -63,6 +63,7 @@ class UpdateRateInfoSerializer(serializers.ModelSerializer):
     is_map = serializers.BooleanField(required=False)
     mapid = serializers.IntegerField(required=False)
     def validate(self, attrs):
+        print('attrs',attrs)
         print("attrs.get('is_map')", attrs.get('is_map'))
         if str(attrs.get('is_map')) not in ['True', 'False', 'None']:
             raise serializers.ValidationError('传值错误')

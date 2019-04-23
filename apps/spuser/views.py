@@ -752,43 +752,24 @@ class AdminCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             real_money=Sum('real_money')).get('real_money')
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
+        all_num = order_queryset.count()
+        order_queryset = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3))
+        success_num = order_queryset.count()
+        service_money = order_queryset.aggregate(
+            service_money=Sum('service_money')).get('service_money')
+        if not service_money:
+            service_money = 0
+        resp['service_money'] = service_money
         if not all_money:
             all_money = 0
         if not success_money:
-            all_money = 0
-        all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
-
-        # user_queryset = UserProfile.objects.filter(level=3)
-        # # 总金额
-        # total_money = user_queryset.aggregate(
-        #     total_money=Sum('total_money')).get('total_money', '0')
-        # # 可提现
-        # ke_money = user_queryset.aggregate(
-        #     money=Sum('money')).get('money', '0')
-        # # 已提现
-        # withd_queryset = WithDrawInfo.objects.filter(withdraw_status=1)
-        # yi_money = withd_queryset.aggregate(
-        #     withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
-        # # 提现中
-        # withd_queryset = WithDrawInfo.objects.filter(withdraw_status=0)
-        # zhong_money = withd_queryset.aggregate(
-        #     withdraw_money=Sum('withdraw_money')).get('withdraw_money', '0')
+            success_money = 0
 
         # 订单
         resp['all_money'] = all_money
         resp['success_money'] = success_money
         resp['all_num'] = all_num
         resp['success_num'] = success_num
-        # # 可提现
-        # resp['ke_money'] = ke_money
-        # # 已提现
-        # resp['yi_money'] = yi_money
-        # # 提现中
-        # resp['zhong_money'] = zhong_money
-        # # 总金额
-        # resp['total_money'] = total_money
-
         code = 200
         return Response(data=resp, status=code)
 

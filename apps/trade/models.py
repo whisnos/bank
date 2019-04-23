@@ -33,6 +33,7 @@ class OrderInfo(models.Model):
     device = models.ForeignKey(DeviceInfo,on_delete=models.CASCADE, null=True, blank=True,verbose_name='设备')
     account_num = models.CharField(max_length=32, null=True, blank=True, verbose_name='银行卡号')
     notify_url = models.CharField(max_length=100, null=True, blank=True, verbose_name='商户回调url')
+    service_money = models.DecimalField(verbose_name='费用', max_digits=7, decimal_places=2, null=True, blank=True)
     def __str__(self):
         return str(self.order_no)
 
@@ -61,7 +62,7 @@ class WithDrawBankInfo(models.Model):
 class WithDrawInfo(models.Model):
     withdraw_no = models.CharField(max_length=50, unique=True, verbose_name='提现单号', null=True, blank=True)
     withdraw_status = models.IntegerField(
-        choices=((0, '处理中'), (1, '已处理'), (2, '已处理')),
+        choices=((0, '处理中'), (1, '已处理'), (2, '驳回')),
         default=0, verbose_name='提现状态')
     withdraw_money = models.DecimalField(max_digits=9, decimal_places=2, verbose_name='提现金额')
     remark = models.CharField(max_length=200, null=True, blank=True, verbose_name='用户留言')

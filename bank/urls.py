@@ -43,7 +43,7 @@ from proxy.views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderIn
     ProxyDeviceViewset, ProxyReceiveBankViewset, ProxyCountViewset, ProxyCDatatViewset, ProxyADataViewset, \
     ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset, \
     ProxyRealDeviceViewset, ProxyLogsViewset, UpInfoOrderInfoViewset, ProxyDeviceChannelViewset, VerifyViewset, \
-    DeviceReceiveBankViewset
+    DeviceReceiveBankViewset, mobile_pay
 
 route.register(r'proxy/user', ProxyUserInfoViewset, base_name="proxy/info")
 route.register(r'proxy/rateinfo', ProxyRateInfoViewset, base_name="proxy/rateinfo")
@@ -114,4 +114,5 @@ urlpatterns = [
     # 查询订单接口
     url(r'^query_order/$', QueryOrderView.as_view(), name="query_order"),
     url(r'^device_login/$', device_login, name='device_login'),
+    url(r'^mobile_pay/$', mobile_pay, name="mobile_pay"),
 ]

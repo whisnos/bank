@@ -377,11 +377,16 @@ class UserCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
-        success_num = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).count()
+        order_queryset=order_queryset.filter(Q(pay_status=1) | Q(pay_status=3))
+        success_num = order_queryset.count()
+        service_money = order_queryset.aggregate(
+            service_money=Sum('service_money')).get('service_money')
         if not all_money:
             all_money = 0
         if not success_money:
             all_money = 0
+        if not service_money:
+            service_money = 0
         # user_queryset = UserProfile.objects.filter(id=self.request.user.id)
         # # 总金额
         # total_money = user_queryset.aggregate(
@@ -402,6 +407,7 @@ class UserCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         resp['success_money'] = success_money
         resp['all_num'] = all_num
         resp['success_num'] = success_num
+        resp['service_money'] = service_money
         # # 可提现
         # resp['ke_money'] = ke_money
         # # 已提现
@@ -570,7 +576,7 @@ class GetPayView(views.APIView):
             # resp['order_id'] = order_id
             # resp['add_time'] = str(order.add_time)
             # resp['channel'] = channel
-            return Response(resp, status=400)
+            return Response(resp, status=200)
         resp['msg'] = 'key匹配错误'
         return Response(resp, status=400)
 
