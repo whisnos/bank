@@ -27,7 +27,7 @@ class MakePay(object):
 
     def choose_pay(self):
         resp = {}
-        channel_queryset = channelInfo.objects.filter(channel_name='atb')
+        channel_queryset = channelInfo.objects.filter(channel_name=self.channel)
         if not channel_queryset:
             resp['msg'] = '通道未开通，无法创建订单'
             return resp
@@ -47,6 +47,7 @@ class MakePay(object):
             rate=thirt_queryset[0].rate
         else:
             RR_queryset = RateInfo.objects.filter(user_id=self.user.id, is_active=True, channel_id=channel_id)
+            print('RR_queryset',RR_queryset)
             if not RR_queryset and len(R_queryset) != 1:
                 resp['msg'] = '找不到对应费率'
                 code = 404
@@ -54,6 +55,7 @@ class MakePay(object):
             else:
                 channel_id = RR_queryset[0].channel_id
                 self.channel = channel_id
+                print('self.channel',self.channel)
                 rate = RR_queryset[0].rate
         if self.channel == 1: # atb
 
@@ -122,7 +124,7 @@ class MakePay(object):
             resp['real_money'] = self.real_money
             resp['order_id'] = self.order_id
             resp['add_time'] = str(order.add_time)
-            resp['channel'] = self.channel
+            resp['channel'] = 'atb'
             return resp
         elif self.channel == 2:
             order = OrderInfo()
@@ -145,7 +147,7 @@ class MakePay(object):
             # resp['real_money'] = self.real_money
             resp['order_id'] = self.order_id
             resp['add_time'] = str(order.add_time)
-            resp['channel'] = self.channel
+            resp['channel'] = 'wang'
             return resp
         elif self.channel == 3:
             resp['code'] = 404
