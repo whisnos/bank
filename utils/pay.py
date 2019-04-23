@@ -44,6 +44,8 @@ class MakePay(object):
                 resp['msg'] = '通道未开通，无法创建订单'
                 return resp
             self.channel=channel_id
+            ci_obj=channelInfo.objects.filter(id=channel_id)[0]
+            name=ci_obj.channel_name
             rate=thirt_queryset[0].rate
         else:
             RR_queryset = RateInfo.objects.filter(user_id=self.user.id, is_active=True, channel_id=channel_id)
@@ -55,9 +57,11 @@ class MakePay(object):
             else:
                 channel_id = RR_queryset[0].channel_id
                 self.channel = channel_id
+                ci_obj = channelInfo.objects.filter(id=channel_id)[0]
+                name = ci_obj.channel_name
                 print('self.channel',self.channel)
                 rate = RR_queryset[0].rate
-        if self.channel == 1: # atb
+        if name == 'atb': # atb
 
             # rateinfo_queryset=RateInfo.objects.filter(user_id=self.user.id,is_active=True,)
             # if not rateinfo_queryset:
@@ -126,7 +130,7 @@ class MakePay(object):
             resp['add_time'] = str(order.add_time)
             resp['channel'] = 'atb'
             return resp
-        elif self.channel == 2:
+        elif name=='wang':
             order = OrderInfo()
             order.user_id = self.user.id
             order.channel_id = 2
