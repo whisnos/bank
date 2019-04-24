@@ -137,12 +137,12 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
 # jwt相关的设置
 JWT_AUTH = {
-    'JWT_EXPIRATION_DELTA': datetime.timedelta(hours=100),
+    'JWT_EXPIRATION_DELTA': datetime.timedelta(days=1),
     'JWT_RESPONSE_PAYLOAD_HANDLER': 'utils.permissions.jwt_response_payload_handler'
 }
 
 # 订单超时 关闭 时间
-CLOSE_TIME = 60
+CLOSE_TIME = 10
 # 前端域名
 FONT_DOMAIN = 'https://www.bfpay.cc'
 

@@ -1310,22 +1310,14 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
 
 class DeviceReceiveBankViewset(viewsets.GenericViewSet,
                                mixins.CreateModelMixin):
-    # permission_classes = (IsDeviceOnly,)
-    # authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
-    # pagination_class = UserListPagination
-    # filter_backends = (DjangoFilterBackend, SearchFilter)
-    # filter_class = ReceiveBankFilter
-    # search_fields = ('username', 'card_number')
 
     def get_queryset(self):
         return []
 
     def get_serializer_class(self):
-        # if self.action == 'create':
         return DeviceReceiveBankCreDetailSerializer
 
     def create(self, request, *args, **kwargs):
-        print(1)
         resp = {'msg': []}
         token = request.META.get('HTTP_AUTHORIZATION')
         try:
@@ -1335,8 +1327,13 @@ class DeviceReceiveBankViewset(viewsets.GenericViewSet,
             resp['msg'] = 'token错误'
             return Response(data=resp, status=code)
         id = payload.get('id')
-        device_obj = DeviceInfo.objects.filter(id=id)[0]
-        user = UserProfile.objects.filter(id=device_obj.user_id)[0]
+        try:
+            device_obj = DeviceInfo.objects.get(id=id)
+            user = UserProfile.objects.get(id=device_obj.user_id)
+        except Exception:
+            code = 404
+            resp['msg'] = '设备，代理出错'
+            return Response(data=resp, status=code)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         vali_data = serializer.validated_data

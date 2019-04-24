@@ -845,11 +845,6 @@ def login(request):
             resp['level'] = user.level
             resp['username'] = user.username
             return JsonResponse(resp, status=code)
-    #     auth_code = device_obj.auth_code
-    #     code = 200
-    #     resp['id'] = device_obj.id
-    #     resp['auth_code'] = auth_code
-    #     return JsonResponse(resp, status=code)
     else:
         code = 400
         resp['msg'] = '仅支持POST'
