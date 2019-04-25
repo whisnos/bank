@@ -158,3 +158,9 @@ AUTHENTICATION_BACKENDS = (
     'user.views.CustomModelBackend',
 
 )
+
+# 设置全局api
+# REST_FRAMEWORK = {
+#        'DEFAULT_RENDERER_CLASSES':
+#                   ( 'rest_framework.renderers.JSONRenderer', ),
+# }
