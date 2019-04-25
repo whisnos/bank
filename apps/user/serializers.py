@@ -154,6 +154,7 @@ class UserOrderListSerializer(serializers.ModelSerializer):
 
 class UserWithDrawListSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format="%Y-%m-%d %H:%M")
+    receive_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
     proxy_name = serializers.SerializerMethodField()
     bank = serializers.SerializerMethodField(label='绑定的用户', required=False)
 

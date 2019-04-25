@@ -12,6 +12,7 @@ from proxy.models import ReceiveBankInfo, RateInfo
 from trade.models import OrderInfo
 from user.models import UserProfile
 from utils.make_code import make_short_code
+from utils.permissions import MakeLogs
 
 
 class MakePay(object):
@@ -96,6 +97,10 @@ class MakePay(object):
             pay_url = FONT_DOMAIN + '/pay/' + order_no
             order.pay_url = pay_url
             order.save()
+            # 引入日志
+            log = MakeLogs()
+            content = '用户：' + str(self.user.username) + ' 创建订单号：' + str(order_no) + ' 金额：'+str(self.order_money)+' 元' + '-'+'atb'
+            log.add_logs(1, content, self.user.id)
             resp['msg'] = '创建成功'
             resp['order_no'] = order_no
             resp['pay_url'] = pay_url
