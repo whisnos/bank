@@ -486,14 +486,14 @@ class GetPayView(views.APIView):
             return Response(resp, status=404)
         # 识别出 用户
         user = user_queryset[0]
-        # 加密 uid + auth_code + real_money + return_url + order_id
         auth_code = user.auth_code
-        new_temp = str(str(uid) + str(auth_code) + str(real_money) + str(return_url) + str(order_id))
+        # 加密 uid + auth_code + real_money + notify_url + order_id
+        new_temp = str(str(uid) + str(auth_code) + str(real_money) + str(notify_url) + str(order_id))
         my_key = make_md5(new_temp)
         if key == key:
             # 关闭超时订单
             now_time = datetime.datetime.now() - datetime.timedelta(minutes=CLOSE_TIME)
-            order_queryset = OrderInfo.objects.filter(pay_status=0, add_time__lte=now_time).update(
+            OrderInfo.objects.filter(pay_status=0, add_time__lte=now_time).update(
                 pay_status=2)
 
             device_queryset = DeviceInfo.objects.filter(user_id=user.proxy_id, is_active=True)
@@ -504,78 +504,6 @@ class GetPayView(views.APIView):
             decive_obj = random.choice(device_queryset)
             pay = MakePay(user, order_money, real_money, channel, remark, order_id, decive_obj, notify_url)
             resp = pay.choose_pay()
-            # if channel == 'atb':
-            #     bank_queryet = ReceiveBankInfo.objects.filter(is_active=True, user_id=user.proxy_id)
-            #     if not bank_queryet:
-            #         resp['code'] = 404
-            #         resp['msg'] = '收款商户未激活,或不存在有效收款卡'
-            #         return Response(resp)
-            #
-            #     short_code = make_short_code(8)
-            #     order_no = "{time_str}{userid}{randstr}".format(time_str=time.strftime("%Y%m%d%H%M%S"),
-            #                                                     userid=user.id, randstr=short_code)
-            #     # # 处理金额
-            #     while True:
-            #         for bank in bank_queryet:
-            #             order_queryset = OrderInfo.objects.filter(pay_status=0, order_money=order_money,
-            #                                                       account_num=bank.card_number)
-            #             if not order_queryset:
-            #                 account_num = bank.card_number
-            #                 break
-            #             else:
-            #                 continue
-            #         if order_queryset:
-            #             order_money = (Decimal(real_money) + Decimal(random.uniform(-0.9, 0.9))).quantize(
-            #                 Decimal('0.00'))
-            #         else:
-            #             break
-            #     order = OrderInfo()
-            #     order.user_id = user.id
-            #     order.channel_id = 1
-            #     order.device_id = decive_obj.id
-            #     order.proxy = user.proxy_id
-            #     order.order_no = order_no
-            #     order.pay_status = 0
-            #     order.order_money = order_money
-            #     order.real_money = real_money
-            #     order.remark = remark
-            #     order.order_id = order_id
-            #     order.account_num = account_num
-            #     pay_url = FONT_DOMAIN + '/pay/' + order_no
-            #     order.pay_url = pay_url
-            #     order.save()
-            #     resp['order_no'] = order_no
-            #     resp['pay_url'] = pay_url
-            #     resp['id'] = order.id
-            # elif channel == 'wang':
-            #     order = OrderInfo()
-            #     order.user_id = user.id
-            #     order.channel_id = 2
-            #     order.device_id = decive_obj.id
-            #     # order.order_no = order_no
-            #     order.pay_status = 0
-            #     order.real_money = real_money
-            #     order.order_money = order_money
-            #     order.remark = remark
-            #     order.order_id = order_id
-            #     order.receive_way = '0'
-            #     order.save()
-            # else:
-            #     resp['code'] = 404
-            #     resp['msg'] = '通道不存在'
-            #     return Response(resp)
-
-            # 引入日志
-            # log = MakeLogs()
-            # content = '用户：' + str(user.username) + ' 创建订单_ ' + str(order_no) + '  金额 ' + str(total_amount) + ' 元'
-            # log.add_logs('1', content, user.id)
-            # resp['msg'] = '创建成功'
-            # resp['code'] = 200
-            # resp['order_money'] = order_money
-            # resp['real_money'] = real_money
-            # resp['order_id'] = order_id
-            # resp['add_time'] = str(order.add_time)
-            # resp['channel'] = channel
             return Response(resp, status=200)
         resp['msg'] = 'key匹配错误'
         return Response(resp, status=400)
