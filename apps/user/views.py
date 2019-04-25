@@ -24,6 +24,7 @@ from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 
 from bank.settings import CLOSE_TIME, FONT_DOMAIN
+from channel.models import channelInfo
 from proxy.filters import WithDrawFilter, WithDrawBankFilter
 from proxy.models import ReceiveBankInfo, DeviceInfo
 from proxy.views import UserListPagination
@@ -490,7 +491,7 @@ class GetPayView(views.APIView):
         # 加密 uid + auth_code + real_money + notify_url + order_id
         new_temp = str(str(uid) + str(auth_code) + str(real_money) + str(notify_url) + str(order_id))
         my_key = make_md5(new_temp)
-        if key == key:
+        if key == my_key:
             # 关闭超时订单
             now_time = datetime.datetime.now() - datetime.timedelta(minutes=CLOSE_TIME)
             OrderInfo.objects.filter(pay_status=0, add_time__lte=now_time).update(
@@ -622,7 +623,7 @@ def get_info(request):
 class QueryOrderView(views.APIView):
     def post(self, request):
         processed_dict = {}
-        resp = {'msg': '订单不存在', 'code': 400}
+        resp = {'msg': '订单不存在'}
         for key, value in request.data.items():
             processed_dict[key] = value
         uid = processed_dict.get('uid', '')
@@ -633,21 +634,23 @@ class QueryOrderView(views.APIView):
             order_queryset = OrderInfo.objects.filter(user=user, order_no=order_no)
             if order_queryset:
                 order = order_queryset[0]
+                channel_q=channelInfo.objects.filter(id=order.channel_id)
+                if not channel_q:
+                    resp['msg'] = '查询失败'
+                    return Response(data=resp,status=400)
                 resp['msg'] = '查询成功'
-                resp['code'] = 200
                 resp['order_money'] = order.order_money
                 resp['remark'] = order.remark
-                resp['add_time'] = order.add_time
+                resp['add_time'] = order.add_time.strftime(format("%Y-%m-%d %H:%M"))
                 resp['pay_status'] = order.pay_status
                 resp['order_no'] = order.order_no
                 resp['order_id'] = order.order_id
-                resp['pay_time'] = order.pay_time
+                resp['pay_time'] = order.pay_time.strftime(format("%Y-%m-%d %H:%M"))
                 resp['pay_url'] = order.pay_url
                 resp['real_money'] = order.real_money
-                # resp['channel'] = eval('order.get_receive_way_display()')  # eval('obj.get_receive_way_display()')
-                resp['channel'] = order.channel  # eval('obj.get_receive_way_display()')
-                return Response(resp)
-        return Response(resp)
+                resp['channel'] = channel_q[0].channel_name  # eval('obj.get_receive_way_display()')
+                return Response(data=resp,status=200)
+        return Response(data=resp,status=400)
 
 
 @csrf_exempt

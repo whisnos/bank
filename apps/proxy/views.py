@@ -1160,19 +1160,19 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                     bank_obj.save()
                     device_obj.save()
                     bank.save()
-                    # 加密顺序 uid + order_no + total_amount + auth_code
-                    new_temp = str(user_obj.uid) + str(order_obj.order_no) + str(order_obj.order_money) + str(
-                        auth_code)
+                    # 加密顺序 uid + order_no + order_money + auth_code
+                    new_temp = str(user_obj.uid) + str(order_obj.order_no) + str(order_obj.order_money) + str(auth_code)
                     my_key = make_md5(new_temp)
                     resp['key'] = my_key
                     resp['pay_status'] = order_obj.pay_status
-                    resp['add_time'] = str(order_obj.add_time)
-                    resp['pay_time'] = str(order_obj.pay_time)
-                    resp['order_money'] = str(order_obj.order_money)
+                    resp['add_time'] = str(order_obj.add_time.strftime(format("%Y-%m-%d %H:%M")))
+                    resp['pay_time'] = str(order_obj.pay_time.strftime(format("%Y-%m-%d %H:%M")))
+                    resp['order_money'] = float(order_obj.order_money)
                     resp['order_id'] = order_obj.order_id
                     resp['order_no'] = order_obj.order_no
                     resp['remark'] = order_obj.remark
-                    resp['real_money'] = str(order_obj.real_money)
+                    resp['real_money'] = float(order_obj.real_money)
+                    resp['channel'] = 'atb'
                     r = json.dumps(resp)
                     headers = {'Content-Type': 'application/json'}
 
@@ -1263,6 +1263,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                             resp['order_no'] = order_queryset[0].order_no
                             resp['remark'] = order_queryset[0].remark
                             resp['order_money'] = str(order_queryset[0].order_money)
+                            resp['channel'] = 'wang'
                             r = json.dumps(resp)
                             headers = {'Content-Type': 'application/json'}
                             if not order_user.notify_url:
