@@ -1184,7 +1184,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                         order_obj.save()
                         resp['msg'] = '订单处理成功，无效notify_url，通知失败'
                         # 加日志
-                        content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_no) + ' 收到'+' 设备：'+str(device_obj.device_name)+' 的回调，状态：' + '通知失败！'
+                        content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) +' 金额：'+str(order_obj.real_money)+ ' 收到'+' 设备：'+str(device_obj.device_name)+' 的回调，状态：' + '通知失败！'
                         log.add_logs(1, content, user_obj.id)
                         return Response(data=resp, status=400)
 
@@ -1193,7 +1193,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                         if res.text == 'success':
                             resp['msg'] = '订单处理成功!'
                             # 加日志
-                            content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_no) + ' 收到' + ' 设备：' + str(
+                            content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) +' 金额：'+str(order_obj.real_money)+ ' 收到' + ' 设备：' + str(
                                 device_obj.device_name) + ' 的回调，状态：' + '处理成功！'
                             log.add_logs(1, content, user_obj.id)
                             return Response(data=resp, status=200)
@@ -1202,7 +1202,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                             order_obj.save()
                             resp['msg'] = '订单处理成功，通知失败'
                             # 加日志
-                            content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_no) + ' 收到' + ' 设备：' + str(
+                            content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) +' 金额：'+str(order_obj.real_money)+ ' 收到' + ' 设备：' + str(
                                 device_obj.device_name) + ' 的回调，状态：' + '通知失败！'
                             log.add_logs(1, content, user_obj.id)
                             return Response(data=resp, status=400)
@@ -1212,7 +1212,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                         print('00000000000')
                         resp['msg'] = '订单处理成功，通知失败'
                         # 加日志
-                        content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_no) + ' 收到' + ' 设备：' + str(
+                        content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) +' 金额：'+str(order_obj.real_money)+ ' 收到' + ' 设备：' + str(
                             device_obj.device_name) + ' 的回调，状态：' + '通知失败！'
                         log.add_logs(1, content, user_obj.id)
                         return Response(data=resp, status=400)
