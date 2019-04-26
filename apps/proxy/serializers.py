@@ -6,6 +6,7 @@ from django.db.models import Sum, Q
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
+from channel.models import AlipayInfo
 from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo, DeviceChannelInfo
 from spuser.serializers import AdminRateInfoDetailSerializer
 from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
@@ -53,6 +54,7 @@ class ProxyRateInfoCreateSerializer(serializers.ModelSerializer):
 class ProxyRateInfoDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     channel = serializers.CharField(read_only=True)
+
     class Meta:
         model = RateInfo
         fields = '__all__'
@@ -62,8 +64,9 @@ class UpdateRateInfoSerializer(serializers.ModelSerializer):
     rate = serializers.DecimalField(max_digits=4, decimal_places=3, required=False)
     is_map = serializers.BooleanField(required=False)
     mapid = serializers.IntegerField(required=False)
+
     def validate(self, attrs):
-        print('attrs',attrs)
+        print('attrs', attrs)
         print("attrs.get('is_map')", attrs.get('is_map'))
         if str(attrs.get('is_map')) not in ['True', 'False', 'None']:
             raise serializers.ValidationError('传值错误')
@@ -285,7 +288,7 @@ class ProxyDeviceInfoDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeviceInfo
-        fields = ['id', 'device_name', 'password', 'channel', 'is_active', 'add_time','auth_code', 'hour_total_num',
+        fields = ['id', 'device_name', 'password', 'channel', 'is_active', 'add_time', 'auth_code', 'hour_total_num',
                   'hour_success_num', 'hour_money_all', 'hour_money_success', 'today_total_num',
                   'today_success_num', 'today_money_all', 'today_money_success', 'yesterday_total_num',
                   'yesterday_success_num', 'yesterday_money_all', 'yesterday_money_success',
@@ -306,14 +309,16 @@ class ProxyWithDrawInfoCreSerializer(serializers.ModelSerializer):
                                         validators=[
                                             UniqueValidator(queryset=DeviceInfo.objects.all(), message='用户名不能重复')
                                         ], help_text='用户名')
-    password = serializers.CharField(label='密码', write_only=True, required=True, allow_blank=False, min_length=6,max_length=15,
+    password = serializers.CharField(label='密码', write_only=True, required=True, allow_blank=False, min_length=6,
+                                     max_length=15,
                                      style={'input_type': 'password'}, help_text='密码')
-    password2 = serializers.CharField(label='确认密码', write_only=True, required=True, allow_blank=False, min_length=6,max_length=15,
+    password2 = serializers.CharField(label='确认密码', write_only=True, required=True, allow_blank=False, min_length=6,
+                                      max_length=15,
                                       style={'input_type': 'password'}, help_text='重复密码')
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     def validate(self, attrs):
-        print('attrs',attrs)
+        print('attrs', attrs)
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError('两次输入密码不一致')
         return attrs
@@ -395,6 +400,7 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     rate = serializers.SerializerMethodField()
     the_channelid = 0
+
     def get_rate(self, instance):
         channelid = self.context['request'].query_params.get('channelid', None)
         if channelid:
@@ -428,9 +434,9 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
     hour_success_num = serializers.SerializerMethodField(read_only=True)
 
     def get_hour_success_num(self, obj):
-        a=OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
-                                 user_id=obj.id,
-                                 add_time__gte=datetime.datetime.now() - datetime.timedelta(hours=1))
+        a = OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
+                                     user_id=obj.id,
+                                     add_time__gte=datetime.datetime.now() - datetime.timedelta(hours=1))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         return a.count()
@@ -440,8 +446,8 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
 
     def get_hour_money_all(self, obj):
         a = OrderInfo.objects.filter(user_id=obj.id,
-                                                  add_time__gte=datetime.datetime.now() - datetime.timedelta(
-                                                      hours=1))
+                                     add_time__gte=datetime.datetime.now() - datetime.timedelta(
+                                         hours=1))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         b = a.aggregate(
@@ -471,9 +477,9 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
     today_total_num = serializers.SerializerMethodField(read_only=True)
 
     def get_today_total_num(self, obj):
-        a=OrderInfo.objects.filter(user_id=obj.id,
-                                        add_time__gte=time.strftime('%Y-%m-%d',
-                                                                    time.localtime(time.time())))
+        a = OrderInfo.objects.filter(user_id=obj.id,
+                                     add_time__gte=time.strftime('%Y-%m-%d',
+                                                                 time.localtime(time.time())))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         return a.count()
@@ -482,10 +488,10 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
     today_success_num = serializers.SerializerMethodField(read_only=True)
 
     def get_today_success_num(self, obj):
-        a=OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
-                                 user_id=obj.id,
-                                 add_time__gte=time.strftime('%Y-%m-%d',
-                                                             time.localtime(time.time())))
+        a = OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
+                                     user_id=obj.id,
+                                     add_time__gte=time.strftime('%Y-%m-%d',
+                                                                 time.localtime(time.time())))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         return a.count()
@@ -495,9 +501,9 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
 
     def get_today_money_all(self, obj):
         a = OrderInfo.objects.filter(user_id=obj.id,
-                                                  add_time__gte=time.strftime('%Y-%m-%d',
-                                                                              time.localtime(
-                                                                                  time.time())))
+                                     add_time__gte=time.strftime('%Y-%m-%d',
+                                                                 time.localtime(
+                                                                     time.time())))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         b = a.aggregate(
@@ -520,17 +526,18 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
         if not b:
             return 0
         return b
+
     # 昨天
     # 昨天 datetime.datetime.now()-datetime.timedelta(hours=1)
     yesterday_total_num = serializers.SerializerMethodField(read_only=True)
 
     def get_yesterday_total_num(self, obj):
-        a=OrderInfo.objects.filter(user_id=obj.id,
-                                        add_time__gte=(datetime.datetime.now() - datetime.timedelta(
-                                            days=1)).strftime(
-                                            '%Y-%m-%d'),
-                                        add_time__lte=time.strftime('%Y-%m-%d',
-                                                                    time.localtime(time.time())))
+        a = OrderInfo.objects.filter(user_id=obj.id,
+                                     add_time__gte=(datetime.datetime.now() - datetime.timedelta(
+                                         days=1)).strftime(
+                                         '%Y-%m-%d'),
+                                     add_time__lte=time.strftime('%Y-%m-%d',
+                                                                 time.localtime(time.time())))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         return a.count()
@@ -539,12 +546,12 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
     yesterday_success_num = serializers.SerializerMethodField(read_only=True)
 
     def get_yesterday_success_num(self, obj):
-        a=OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
-                                        user_id=obj.id,
-                                        add_time__range=(
-                                            (datetime.datetime.now() - datetime.timedelta(days=1)).strftime(
-                                                '%Y-%m-%d'),
-                                            time.strftime('%Y-%m-%d', time.localtime(time.time()))))
+        a = OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
+                                     user_id=obj.id,
+                                     add_time__range=(
+                                         (datetime.datetime.now() - datetime.timedelta(days=1)).strftime(
+                                             '%Y-%m-%d'),
+                                         time.strftime('%Y-%m-%d', time.localtime(time.time()))))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         return a.count()
@@ -554,12 +561,12 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
 
     def get_yesterday_money_all(self, obj):
         a = OrderInfo.objects.filter(user_id=obj.id,
-                                                  add_time__range=(
-                                                      (datetime.datetime.now() - datetime.timedelta(
-                                                          days=1)).strftime(
-                                                          '%Y-%m-%d'),
-                                                      time.strftime('%Y-%m-%d',
-                                                                    time.localtime(time.time()))))
+                                     add_time__range=(
+                                         (datetime.datetime.now() - datetime.timedelta(
+                                             days=1)).strftime(
+                                             '%Y-%m-%d'),
+                                         time.strftime('%Y-%m-%d',
+                                                       time.localtime(time.time()))))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         b = a.aggregate(
@@ -596,9 +603,9 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
     month_success_num = serializers.SerializerMethodField(read_only=True)
 
     def get_month_success_num(self, obj):
-        a=OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
-                                        user_id=obj.id,
-                                        add_time__gte=datetime.datetime.now() - datetime.timedelta(days=30))
+        a = OrderInfo.objects.filter((Q(pay_status=1) | Q(pay_status=3)),
+                                     user_id=obj.id,
+                                     add_time__gte=datetime.datetime.now() - datetime.timedelta(days=30))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         return a.count()
@@ -609,8 +616,8 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
 
     def get_month_money_all(self, obj):
         a = OrderInfo.objects.filter(user_id=obj.id,
-                                                  add_time__gte=(datetime.datetime.now() - datetime.timedelta(
-                                                      days=30)))
+                                     add_time__gte=(datetime.datetime.now() - datetime.timedelta(
+                                         days=30)))
         if self.the_channelid:
             a = a.filter(channel_id=self.the_channelid)
         b = a.aggregate(
@@ -710,24 +717,32 @@ class OrderGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderInfo
         fields = ['id', 'order_money']
+
+
 class OrderUpdatePaySerializer(serializers.Serializer):
     auth_code = serializers.CharField(required=True)
     # class Meta:
     #     model = OrderInfo
     #     fields = ['auth_code']
+
+
 class ProxyDCInfoSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+
     class Meta:
         model = DeviceChannelInfo
         fields = '__all__'
 
+
 class ProxyDCInfoUPSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True)
-    channel = serializers.CharField(required=False,read_only=True)
-    device= serializers.CharField(required=False,read_only=True)
+    channel = serializers.CharField(required=False, read_only=True)
+    device = serializers.CharField(required=False, read_only=True)
+
     class Meta:
         model = DeviceChannelInfo
         fields = '__all__'
+
 
 class VerifyPaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -746,10 +761,47 @@ class DeviceReceiveBankCreDetailSerializer(serializers.ModelSerializer):
     bank_mark = serializers.CharField(required=True, label='银行编号')
     bank_tel = serializers.CharField(required=True, label='银行电话')
     card_index = serializers.CharField(required=True, label='卡索引')
+
     # device = serializers.IntegerField(required=True, label='设备id')
     def validate(self, attrs):
-        print('attrs',attrs)
+        print('attrs', attrs)
         return attrs
+
     class Meta:
         model = ReceiveBankInfo
         fields = ['username', 'card_number', 'bank_type', 'bank_mark', 'bank_tel', 'card_index']
+
+
+class ProxyAlipayInfoDetailSerializer(serializers.ModelSerializer):
+    add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+
+    class Meta:
+        model = AlipayInfo
+        fields = '__all__'
+
+
+class ProxyAlipayInfoPostSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=True, label='公司名')
+    c_appid = serializers.CharField(required=True, label='appid', validators=[
+        UniqueValidator(queryset=AlipayInfo.objects.all(), message='appid不能重复')])
+    alipay_public_key = serializers.CharField(required=True, label='公钥')
+    c_private_key = serializers.CharField(required=True, label='私钥')
+    # add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = AlipayInfo
+        fields = ['name', 'c_appid', 'alipay_public_key', 'c_private_key', 'user']
+
+
+class ProxyAlipayInfoUpdateDetailSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=False, label='公司名')
+    c_appid = serializers.CharField(required=False, label='appid', validators=[
+        UniqueValidator(queryset=AlipayInfo.objects.all(), message='appid不能重复')])
+    alipay_public_key = serializers.CharField(required=False, label='公钥')
+    c_private_key = serializers.CharField(required=False, label='私钥')
+    is_active = serializers.BooleanField(required=False, label='是否激活')
+
+    class Meta:
+        model = AlipayInfo
+        fields = ['name', 'c_appid', 'alipay_public_key', 'c_private_key', 'is_active']

@@ -164,3 +164,10 @@ AUTHENTICATION_BACKENDS = (
 #        'DEFAULT_RENDERER_CLASSES':
 #                   ( 'rest_framework.renderers.JSONRenderer', ),
 # }
+
+# 支付宝配置
+ALIPAY_DEBUG = True
+# 支付支付 回调地址
+APP_NOTIFY_URL = "http://127.0.0.1:8000/alipay/receive/"
+
+REDIRECT_URL = "https://pay.bfpay.cc/redirect_url/?id="

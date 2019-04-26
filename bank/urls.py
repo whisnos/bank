@@ -22,7 +22,8 @@ from rest_framework_jwt.views import obtain_jwt_token
 route = DefaultRouter()
 from user.views import UserInfoViewset, UserOrderViewset, UserWithDrawViewset, UserWithDrawBankViewset, \
     UserCountViewset, UserCDataViewset, UserADataViewset, UserWDataViewset, GetPayView, UserCODataViewset, \
-    UserChartViewset, test, UserLogsViewset, get_info, QueryOrderView, device_login, UserGoogleBindViewset, login
+    UserChartViewset, test, UserLogsViewset, get_info, QueryOrderView, device_login, UserGoogleBindViewset, login, \
+    AlipayReceiveView
 
 # user
 route.register(r'user/info', UserInfoViewset, base_name="user/info")
@@ -43,7 +44,7 @@ from proxy.views import ProxyUserInfoViewset, ProxyRateInfoViewset, ProxyOrderIn
     ProxyDeviceViewset, ProxyReceiveBankViewset, ProxyCountViewset, ProxyCDatatViewset, ProxyADataViewset, \
     ProxyWDatatViewset, ProxyCODataViewset, ProxyChartViewset, ProxyCUDataViewset, ProxyCallBackViewset, \
     ProxyRealDeviceViewset, ProxyLogsViewset, UpInfoOrderInfoViewset, ProxyDeviceChannelViewset, VerifyViewset, \
-    DeviceReceiveBankViewset, mobile_pay
+    DeviceReceiveBankViewset, mobile_pay,ProxyAlipayViewset
 
 route.register(r'proxy/user', ProxyUserInfoViewset, base_name="proxy/info")
 route.register(r'proxy/rateinfo', ProxyRateInfoViewset, base_name="proxy/rateinfo")
@@ -61,8 +62,8 @@ route.register(r'proxy/cudata', ProxyCUDataViewset, base_name="proxy/cudata")
 route.register(r'proxy/chart', ProxyChartViewset, base_name="proxy/chart")
 route.register(r'proxy/backs', ProxyCallBackViewset, base_name="proxy/backs")
 route.register(r'proxy/logs', ProxyLogsViewset, base_name="proxy/logs")
-
 route.register(r'proxy/devicechannel', ProxyDeviceChannelViewset, base_name="proxy/devicechannel")
+route.register(r'proxy/alipay', ProxyAlipayViewset, base_name="proxy/alipay")
 
 # admin
 from spuser.views import AdminProxyViewset, AdminuserProxyViewset, AdminChannelViewset, AdminOrderViewset, \
@@ -115,4 +116,5 @@ urlpatterns = [
     url(r'^query_order/$', QueryOrderView.as_view(), name="query_order"),
     url(r'^device_login/$', device_login, name='device_login'),
     url(r'^mobile_pay/$', mobile_pay, name="mobile_pay"),
+    url(r'^alipay/receive/', AlipayReceiveView.as_view(), name="receive"),
 ]

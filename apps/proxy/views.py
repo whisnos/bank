@@ -19,7 +19,7 @@ from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
 from bank.settings import DEFAULT_RATE, CLOSE_TIME, SECRET_VERIFY
-from channel.models import channelInfo
+from channel.models import channelInfo, AlipayInfo
 from proxy.filters import ProxyUserFilter, WithDrawFilter, DeviceFilter, ReceiveBankFilter, DeviceChannelFilter
 from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo, DeviceChannelInfo
 from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSerializer, ProxyRateInfoDetailSerializer, \
@@ -29,7 +29,8 @@ from proxy.serializers import ProxyUserDetailSerializer, ProxyRateInfoCreateSeri
     ProxyReceiveBankInfoUpdateDetailSerializer, ProxyReceiveBankInfoRetriDetailSerializer, ProxyCountDetailSerializer, \
     ProxyCODataRetrieveSerializer, ProxyCODataSerializer, CallBackOrderUpdateSeralizer, ProxyDChannelDetailSerializer, \
     OrderGetSerializer, ProxyDCInfoSerializer, ProxyDCInfoUPSerializer, VerifyPaySerializer, OrderUpdatePaySerializer, \
-    DeviceReceiveBankCreDetailSerializer
+    DeviceReceiveBankCreDetailSerializer, ProxyAlipayInfoDetailSerializer, \
+    ProxyAlipayInfoPostSerializer, ProxyAlipayInfoUpdateDetailSerializer
 from spuser.filters import AdminOrderFilter, AdminProxyFilter, LogFilter, RateInfoFilter
 from spuser.models import LogInfo
 from spuser.serializers import AdminOrderDetailSerializer, OrderChartListSerializer, AdminLogListInfoSerializer, \
@@ -304,7 +305,7 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         return ProxyWithDrawInfoDetailSerializer
 
     def update(self, request, *args, **kwargs):
-        user=self.request.user
+        user = self.request.user
         resp = {'msg': []}
         withdraw_obj = self.get_object()
         code = 201
@@ -318,10 +319,10 @@ class ProxyWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixin
         if str(withdraw_status):
             if withdraw_status in [0, 1, 2]:
                 if withdraw_status == 2:
-                    userid=withdraw_obj.user_id
-                    shang_user=UserProfile.objects.filter(id=userid)[0]
-                    shang_user.money=shang_user.money+withdraw_obj.withdraw_money
-                    user.money=user.money+withdraw_obj.withdraw_money
+                    userid = withdraw_obj.user_id
+                    shang_user = UserProfile.objects.filter(id=userid)[0]
+                    shang_user.money = shang_user.money + withdraw_obj.withdraw_money
+                    user.money = user.money + withdraw_obj.withdraw_money
                     shang_user.save()
                     user.save()
                 withdraw_obj.withdraw_status = withdraw_status
@@ -547,10 +548,10 @@ class ProxyCDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         order_queryset = OrderInfo.objects.filter(
             add_time__range=(s_time, e_time),
             proxy=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
-        print('order_queryset',order_queryset)
+        print('order_queryset', order_queryset)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money')
-        print('all_money',all_money)
+        print('all_money', all_money)
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
@@ -1069,7 +1070,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
         id = payload.get('id')
         device_obj = DeviceInfo.objects.filter(id=id)[0]
         user = UserProfile.objects.filter(id=device_obj.user_id)[0]
-        print('user',user,device_obj)
+        print('user', user, device_obj)
         processed_dict = {}
         for key, value in self.request.data.items():
             processed_dict[key] = value
@@ -1084,7 +1085,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
             device_queryset = DeviceInfo.objects.filter(auth_code=auth_code, is_active=True)
             if device_queryset:
                 device_obj = device_queryset[0]
-                order_queryset = OrderInfo.objects.filter(pay_status=0, real_money=money,device=device_obj.id)
+                order_queryset = OrderInfo.objects.filter(pay_status=0, real_money=money, device=device_obj.id)
                 if not order_queryset:
                     code = 404
                     resp['msg'] = '订单不存在，联系管理员处理'
@@ -1103,7 +1104,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                 # 加密顺序 money + bank_tel + auth_code + SECRET_VERIFY
                 new_temp = str(money) + str(bank_tel) + str(auth_code) + SECRET_VERIFY
                 my_key = make_md5(new_temp)
-                print('my_key',my_key)
+                print('my_key', my_key)
                 if key.lower() == my_key:
                     order_obj.pay_status = 1
                     order_obj.pay_time = datetime.datetime.now()
@@ -1133,8 +1134,8 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                         else:
                             rate = RR_queryset[0].rate
                     # 算费 计算后金额
-                    print('rate',money)
-                    real_money =Decimal(money)- Decimal(money)*Decimal(rate)
+                    print('rate', money)
+                    real_money = Decimal(money) - Decimal(money) * Decimal(rate)
                     # 更新用户收款 98
                     user_obj.total_money = '%.2f' % (Decimal(user_obj.total_money) + Decimal(real_money))
                     user_obj.money = '%.2f' % (Decimal(user_obj.money) + Decimal(real_money))
@@ -1150,7 +1151,7 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                     device_obj.total_money = '%.2f' % (Decimal(device_obj.total_money) + Decimal(money))
 
                     # 银行卡收款
-                    bank=bank_queryset[0]
+                    bank = bank_queryset[0]
                     bank.total_money = '%.2f' % (Decimal(bank.total_money) + Decimal(money))
                     notify_url = order_obj.notify_url
                     # 进行保存
@@ -1184,7 +1185,8 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                         order_obj.save()
                         resp['msg'] = '订单处理成功，无效notify_url，通知失败'
                         # 加日志
-                        content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) +' 金额：'+str(order_obj.real_money)+ ' 收到'+' 设备：'+str(device_obj.device_name)+' 的回调，状态：' + '通知失败！'
+                        content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) + ' 金额：' + str(
+                            order_obj.real_money) + ' 收到' + ' 设备：' + str(device_obj.device_name) + ' 的回调，状态：' + '通知失败！'
                         log.add_logs(1, content, user_obj.id)
                         return Response(data=resp, status=400)
 
@@ -1193,7 +1195,8 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                         if res.text == 'success':
                             resp['msg'] = '订单处理成功!'
                             # 加日志
-                            content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) +' 金额：'+str(order_obj.real_money)+ ' 收到' + ' 设备：' + str(
+                            content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(
+                                order_obj.order_no) + ' 金额：' + str(order_obj.real_money) + ' 收到' + ' 设备：' + str(
                                 device_obj.device_name) + ' 的回调，状态：' + '处理成功！'
                             log.add_logs(1, content, user_obj.id)
                             return Response(data=resp, status=200)
@@ -1202,7 +1205,8 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                             order_obj.save()
                             resp['msg'] = '订单处理成功，通知失败'
                             # 加日志
-                            content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) +' 金额：'+str(order_obj.real_money)+ ' 收到' + ' 设备：' + str(
+                            content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(
+                                order_obj.order_no) + ' 金额：' + str(order_obj.real_money) + ' 收到' + ' 设备：' + str(
                                 device_obj.device_name) + ' 的回调，状态：' + '通知失败！'
                             log.add_logs(1, content, user_obj.id)
                             return Response(data=resp, status=400)
@@ -1212,7 +1216,8 @@ class VerifyViewset(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                         print('00000000000')
                         resp['msg'] = '订单处理成功，通知失败'
                         # 加日志
-                        content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) +' 金额：'+str(order_obj.real_money)+ ' 收到' + ' 设备：' + str(
+                        content = '用户：' + str(user_obj.username) + ' 的订单号：' + str(order_obj.order_no) + ' 金额：' + str(
+                            order_obj.real_money) + ' 收到' + ' 设备：' + str(
                             device_obj.device_name) + ' 的回调，状态：' + '通知失败！'
                         log.add_logs(1, content, user_obj.id)
                         return Response(data=resp, status=400)
@@ -1363,6 +1368,7 @@ class DeviceReceiveBankViewset(viewsets.GenericViewSet,
         serializer = ProxyReceiveBankInfoDetailSerializer(r)
         return Response(data=serializer.data, status=200)
 
+
 def mobile_pay(request):
     order_id = request.GET.get('id')
     print('order_id', order_id)
@@ -1400,3 +1406,22 @@ def mobile_pay(request):
     else:
         resp['msg'] = '订单不存在'
         return JsonResponse(data=resp, status=400)
+
+
+class ProxyAlipayViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
+                         mixins.UpdateModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin):
+    permission_classes = (IsAuthenticated, IsProxyOnly)
+    authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
+    pagination_class = UserListPagination
+    filter_backends = (SearchFilter,)
+    search_fields = ('c_appid', 'name')
+
+    def get_queryset(self):
+        return AlipayInfo.objects.filter(user_id=self.request.user.id).order_by('-add_time')  # .order_by('-add_time')
+
+    def get_serializer_class(self):
+        if self.action == 'update':
+            return ProxyAlipayInfoUpdateDetailSerializer
+        elif self.action == 'create':
+            return ProxyAlipayInfoPostSerializer
+        return ProxyAlipayInfoDetailSerializer

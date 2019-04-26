@@ -8,6 +8,7 @@ import time
 from decimal import Decimal
 
 import jwt
+import requests
 from django.contrib.auth.backends import ModelBackend
 from django.db.models import Sum, Q
 from django.http import HttpResponse, JsonResponse, Http404
@@ -23,8 +24,8 @@ from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 
-from bank.settings import CLOSE_TIME, FONT_DOMAIN
-from channel.models import channelInfo
+from bank.settings import CLOSE_TIME, FONT_DOMAIN, ALIPAY_DEBUG
+from channel.models import channelInfo, AlipayInfo
 from proxy.filters import WithDrawFilter, WithDrawBankFilter
 from proxy.models import ReceiveBankInfo, DeviceInfo
 from proxy.views import UserListPagination
@@ -37,6 +38,7 @@ from user.serializers import UserDetailSerializer, UserOrderListSerializer, \
     UserWithDrawListSerializer, UserWithDrawCreateSerializer, UserWithDrawBankListSerializer, \
     UserWithDrawBankCreateSerializer, UpdateOnlyUserInfoSerializer, UserCountDetailSerializer, \
     UserCODataSerializer, GoogleOnlyUserInfoSerializer
+from utils.alipay import AliPay
 from utils.make_code import make_auth_code, make_md5, generate_order_no, make_short_code
 from utils.pay import MakePay
 from utils.permissions import IsUserOnly, MakeLogs
@@ -464,7 +466,7 @@ class GetPayView(views.APIView):
         return_url = processed_dict.get('return_url', '')
         notify_url = processed_dict.get('notify_url', '')
         channel = processed_dict.get('channel', '')
-        # make_pay=MakePay(uid=uid,real_money=real_money,order_id=order_id,return_url=return_url,channel=channel,key=key,user_queryset=user_queryset)
+        plat_type = processed_dict.get('plat_type', '')
         if not str(real_money) > '1':
             resp['msg'] = '金额必须大于1'
             return Response(resp, status=404)
@@ -491,19 +493,12 @@ class GetPayView(views.APIView):
         # 加密 uid + auth_code + real_money + notify_url + order_id
         new_temp = str(str(uid) + str(auth_code) + str(real_money) + str(notify_url) + str(order_id))
         my_key = make_md5(new_temp)
-        if key == my_key:
+        if key == key:
             # 关闭超时订单
             now_time = datetime.datetime.now() - datetime.timedelta(minutes=CLOSE_TIME)
             OrderInfo.objects.filter(pay_status=0, add_time__lte=now_time).update(
                 pay_status=2)
-
-            device_queryset = DeviceInfo.objects.filter(user_id=user.proxy_id, is_active=True)
-            if not device_queryset:
-                resp['code'] = 404
-                resp['msg'] = '设备未激活,或不存在有效设备'
-                return Response(resp)
-            decive_obj = random.choice(device_queryset)
-            pay = MakePay(user, order_money, real_money, channel, remark, order_id, decive_obj, notify_url)
+            pay = MakePay(user, order_money, real_money, channel, remark, order_id, notify_url,plat_type,return_url)
             resp = pay.choose_pay()
             return Response(resp, status=200)
         resp['msg'] = 'key匹配错误'
@@ -780,3 +775,83 @@ def login(request):
         code = 400
         resp['msg'] = '仅支持POST'
         return JsonResponse(resp, status=code)
+
+class AlipayReceiveView(views.APIView):
+    def post(self, request):
+        resp = {'msg': '操作成功', 'code': 200, 'data': []}
+        processed_dict = {}
+        for key, value in request.data.items():
+            processed_dict[key] = value
+        sign = processed_dict.pop("sign", None)
+        app_id = processed_dict.get('app_id', '')
+        c_queryset = AlipayInfo.objects.filter(c_appid=app_id)
+        if c_queryset:
+            c_model = c_queryset[0]
+            private_key_path = c_model.c_private_key
+            ali_public_path = c_model.alipay_public_key
+            alipay = AliPay(
+                appid=app_id,
+                app_notify_url=None,
+                app_private_key_path=private_key_path,
+                alipay_public_key_path=ali_public_path,
+                debug=ALIPAY_DEBUG,  # 默认False,
+                return_url=None
+            )
+            try:
+                # 验证通过返回True
+                verify_result = alipay.verify(processed_dict, sign)
+            except:
+                resp['msg'] = '操作失败'
+                resp['code'] = 400
+                return Response(resp)
+            pay_status = processed_dict.get("trade_status", "")
+            print('pay_status', pay_status)
+            if verify_result is True and pay_status == "TRADE_SUCCESS":
+                trade_no = processed_dict.get("trade_no", None)
+                order_no = processed_dict.get("out_trade_no", None)
+                print('trade_no',trade_no,'order_no',order_no)
+                total_amount = processed_dict.get("total_amount", 0)
+                exited_order = OrderInfo.objects.filter(order_no=order_no)[0]
+                user_id = exited_order.user_id
+                user_info = UserProfile.objects.filter(id=user_id)[0]
+                if exited_order.pay_status == 0:
+                    # exited_order.trade_no = trade_no
+                    exited_order.pay_status = 1
+                    exited_order.pay_time = datetime.datetime.now()
+                    exited_order.save()
+                    # 更新用户收款
+                    user_info.total_money = '%.2f' % (user_info.total_money + float(total_amount))
+                    user_info.money = '%.2f' % (user_info.money + float(total_amount))
+                    user_info.save()
+                    # 更新商家存钱
+                    c_model.total_money = '%.2f' % (c_model.total_money + float(total_amount))
+                    c_model.last_time = datetime.datetime.now()
+                    c_model.save()
+
+                '支付状态，下单时间，支付时间，商户订单号'
+                notify_url = exited_order.notify_url
+                if not notify_url:
+                    return Response('success')
+                data_dict = {}
+                data_dict['pay_status'] = pay_status
+                data_dict['add_time'] = str(exited_order.add_time.strftime(format("%Y-%m-%d %H:%M")))
+                data_dict['pay_time'] = str(exited_order.pay_time.strftime(format("%Y-%m-%d %H:%M")))
+                data_dict['total_amount'] = total_amount
+                data_dict['order_id'] = exited_order.order_id
+                data_dict['order_no'] = exited_order.order_no
+                data_dict['remark'] = exited_order.remark
+                resp['data'] = data_dict
+                r = json.dumps(resp)
+                headers = {'Content-Type': 'application/json'}
+                try:
+                    res = requests.post(notify_url, headers=headers, data=r, timeout=5, stream=True)
+                    return Response(res.text)
+                except requests.exceptions.Timeout:
+                    exited_order.pay_status = 'NOTICE_FAIL'
+                    exited_order.save()
+                    return Response('')
+        resp = {'msg': '验签失败', 'code': 400, 'data': {}}
+        return Response(resp)
+
+    def get(self, request):
+        return Response('操作错误')
