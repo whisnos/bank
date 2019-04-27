@@ -782,7 +782,6 @@ class AlipayReceiveView(views.APIView):
         processed_dict = {}
         for key, value in request.data.items():
             processed_dict[key] = value
-        print('processed_dict',processed_dict)
         sign = processed_dict.pop("sign", None)
         app_id = processed_dict.get('app_id', '')
         c_queryset = AlipayInfo.objects.filter(c_appid=app_id)
