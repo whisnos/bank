@@ -180,6 +180,7 @@ class MakePay(object):
             order.order_money = self.order_money
             order.remark = self.remark
             order.order_id = self.order_id
+            order.order_no = order_no
             order.notify_url = self.notify_url
             order.proxy = self.user.proxy_id
             order.pay_url = url

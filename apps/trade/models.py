@@ -34,6 +34,7 @@ class OrderInfo(models.Model):
     account_num = models.CharField(max_length=32, null=True, blank=True, verbose_name='银行卡号')
     notify_url = models.CharField(max_length=100, null=True, blank=True, verbose_name='商户回调url')
     service_money = models.DecimalField(verbose_name='费用', max_digits=7, decimal_places=2, null=True, blank=True)
+    trade_no = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name='支付宝交易号')
     def __str__(self):
         return str(self.order_no)
 

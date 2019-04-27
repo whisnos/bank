@@ -24,7 +24,7 @@ from rest_framework.response import Response
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 
-from bank.settings import CLOSE_TIME, FONT_DOMAIN, ALIPAY_DEBUG
+from bank.settings import CLOSE_TIME, FONT_DOMAIN, ALIPAY_DEBUG, APP_NOTIFY_URL
 from channel.models import channelInfo, AlipayInfo
 from proxy.filters import WithDrawFilter, WithDrawBankFilter
 from proxy.models import ReceiveBankInfo, DeviceInfo
@@ -466,7 +466,7 @@ class GetPayView(views.APIView):
         return_url = processed_dict.get('return_url', '')
         notify_url = processed_dict.get('notify_url', '')
         channel = processed_dict.get('channel', '')
-        plat_type = processed_dict.get('plat_type', '')
+        plat_type = processed_dict.get('palt_type', '')
         if not str(real_money) > '1':
             resp['msg'] = '金额必须大于1'
             return Response(resp, status=404)
@@ -575,7 +575,7 @@ class UserChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
 @csrf_exempt
 def test(request):
     print('接收到的信息', request.body)
-    return HttpResponse('success')
+    return HttpResponse(status=400)
 
 
 class UserLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
@@ -782,16 +782,18 @@ class AlipayReceiveView(views.APIView):
         processed_dict = {}
         for key, value in request.data.items():
             processed_dict[key] = value
+        print('processed_dict',processed_dict)
         sign = processed_dict.pop("sign", None)
         app_id = processed_dict.get('app_id', '')
         c_queryset = AlipayInfo.objects.filter(c_appid=app_id)
         if c_queryset:
             c_model = c_queryset[0]
+            print('c_model',c_model)
             private_key_path = c_model.c_private_key
             ali_public_path = c_model.alipay_public_key
             alipay = AliPay(
                 appid=app_id,
-                app_notify_url=None,
+                app_notify_url=APP_NOTIFY_URL,
                 app_private_key_path=private_key_path,
                 alipay_public_key_path=ali_public_path,
                 debug=ALIPAY_DEBUG,  # 默认False,
@@ -805,26 +807,32 @@ class AlipayReceiveView(views.APIView):
                 resp['code'] = 400
                 return Response(resp)
             pay_status = processed_dict.get("trade_status", "")
-            print('pay_status', pay_status)
+            print('pay_status', pay_status,verify_result)
             if verify_result is True and pay_status == "TRADE_SUCCESS":
                 trade_no = processed_dict.get("trade_no", None)
                 order_no = processed_dict.get("out_trade_no", None)
                 print('trade_no',trade_no,'order_no',order_no)
                 total_amount = processed_dict.get("total_amount", 0)
-                exited_order = OrderInfo.objects.filter(order_no=order_no)[0]
+                exited_set= OrderInfo.objects.filter(order_no=order_no)
+                if not exited_set:
+                    resp['msg'] = '查找失败'
+                    resp['code'] = 400
+                    return Response(resp)
+                exited_order=exited_set[0]
                 user_id = exited_order.user_id
                 user_info = UserProfile.objects.filter(id=user_id)[0]
                 if exited_order.pay_status == 0:
                     # exited_order.trade_no = trade_no
                     exited_order.pay_status = 1
+                    exited_order.trade_no = trade_no
                     exited_order.pay_time = datetime.datetime.now()
                     exited_order.save()
                     # 更新用户收款
-                    user_info.total_money = '%.2f' % (user_info.total_money + float(total_amount))
-                    user_info.money = '%.2f' % (user_info.money + float(total_amount))
+                    user_info.total_money = '%.2f' % (user_info.total_money + Decimal(total_amount))
+                    user_info.money = '%.2f' % (user_info.money + Decimal(total_amount))
                     user_info.save()
                     # 更新商家存钱
-                    c_model.total_money = '%.2f' % (c_model.total_money + float(total_amount))
+                    c_model.total_money = '%.2f' % (c_model.total_money + Decimal(total_amount))
                     c_model.last_time = datetime.datetime.now()
                     c_model.save()
 
@@ -845,7 +853,8 @@ class AlipayReceiveView(views.APIView):
                 headers = {'Content-Type': 'application/json'}
                 try:
                     res = requests.post(notify_url, headers=headers, data=r, timeout=5, stream=True)
-                    return Response(res.text)
+                    print('res.text',res.text)
+                    return Response(data=res.text,status=400)
                 except requests.exceptions.Timeout:
                     exited_order.pay_status = 'NOTICE_FAIL'
                     exited_order.save()
@@ -854,4 +863,4 @@ class AlipayReceiveView(views.APIView):
         return Response(resp)
 
     def get(self, request):
-        return Response('操作错误')
+        return Response('仅支持POST')

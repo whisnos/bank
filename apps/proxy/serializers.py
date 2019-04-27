@@ -801,7 +801,8 @@ class ProxyAlipayInfoUpdateDetailSerializer(serializers.ModelSerializer):
     alipay_public_key = serializers.CharField(required=False, label='公钥')
     c_private_key = serializers.CharField(required=False, label='私钥')
     is_active = serializers.BooleanField(required=False, label='是否激活')
-
+    add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+    total_money = serializers.DecimalField(read_only=True, max_digits=9,decimal_places=2)
     class Meta:
         model = AlipayInfo
-        fields = ['name', 'c_appid', 'alipay_public_key', 'c_private_key', 'is_active']
+        fields = ['id','name', 'c_appid', 'alipay_public_key', 'c_private_key', 'is_active','add_time','total_money']
