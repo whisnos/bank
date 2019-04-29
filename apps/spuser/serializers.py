@@ -520,9 +520,10 @@ class AdminRateInfoDetailSerializer(serializers.ModelSerializer):
         if c_q:
             return c_q[0].channel_name
         return '无通道名'
+
     class Meta:
         model = RateInfo
-        fields = ['rate', 'channel_id','channel_name']
+        fields = ['rate', 'channel_id', 'channel_name']
 
 
 class AdminRateInfoListDetailSerializer(serializers.ModelSerializer):
@@ -872,10 +873,15 @@ class AdminCDataOrderSerializer(serializers.Serializer):
 
 class OrderChartListSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
+    channel_name = serializers.SerializerMethodField()
+
+    def get_channel_name(self, instance):
+        c_obj = channelInfo.objects.get(id=instance.channel_id)
+        return c_obj.channel_name
 
     class Meta:
         model = OrderInfo
-        fields = ['add_time', 'real_money', 'channel']
+        fields = ['add_time', 'real_money', 'channel', 'channel_name']
 
 
 class AdminLogListInfoSerializer(serializers.ModelSerializer):
