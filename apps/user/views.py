@@ -27,7 +27,7 @@ from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handl
 from bank.settings import CLOSE_TIME, FONT_DOMAIN, ALIPAY_DEBUG, APP_NOTIFY_URL
 from channel.models import channelInfo, AlipayInfo
 from proxy.filters import WithDrawFilter, WithDrawBankFilter
-from proxy.models import ReceiveBankInfo, DeviceInfo
+from proxy.models import ReceiveBankInfo, DeviceInfo, RateInfo
 from proxy.views import UserListPagination
 from spuser.filters import AdminOrderFilter, AdminProxyFilter, LogFilter
 from spuser.models import LogInfo
@@ -467,9 +467,9 @@ class GetPayView(views.APIView):
         notify_url = processed_dict.get('notify_url', '')
         channel = processed_dict.get('channel', '')
         plat_type = processed_dict.get('palt_type', '')
-        if not str(real_money) > '1':
-            resp['msg'] = '金额必须大于1'
-            return Response(resp, status=404)
+        # if not str(real_money) > '1':
+        #     resp['msg'] = '金额必须大于1'
+        #     return Response(resp, status=404)
         if not order_id:
             resp['msg'] = '请填写订单号~~'
             return Response(resp, status=404)
@@ -826,14 +826,44 @@ class AlipayReceiveView(views.APIView):
                     exited_order.trade_no = trade_no
                     exited_order.pay_time = datetime.datetime.now()
                     exited_order.save()
+                    # 查找alipay通道费率
+                    c_queryset = channelInfo.objects.filter(channel_name='atb')
+                    if not c_queryset:
+                        resp['msg'] = '找不到对应通道'
+                        code = 404
+                        return Response(data=resp, status=code)
+                    R_queryset = RateInfo.objects.filter(user_id=user_id, is_active=True, is_map=True,
+                                                         channel_id=c_queryset[0].id)
+                    if R_queryset:
+                        mapid = R_queryset[0].mapid
+                        new_queryset = RateInfo.objects.filter(id=mapid)
+                        rate = new_queryset[0].rate
+                    else:
+                        RR_queryset = RateInfo.objects.filter(user_id=user_id, is_active=True,
+                                                              channel_id=c_queryset[0].id)
+                        if not RR_queryset and len(R_queryset) != 1:
+                            resp['msg'] = '找不到对应费率'
+                            code = 404
+                            return Response(data=resp, status=code)
+                        else:
+                            rate = RR_queryset[0].rate
+                    # 算费 计算后金额
+                    real_money = Decimal(total_amount) - Decimal(total_amount) * Decimal(rate)
+                    print('计算后金额', real_money)
                     # 更新用户收款
-                    user_info.total_money = '%.2f' % (user_info.total_money + Decimal(total_amount))
-                    user_info.money = '%.2f' % (user_info.money + Decimal(total_amount))
-                    user_info.save()
+                    user_info.total_money = (user_info.total_money + Decimal(real_money))
+                    user_info.money = (user_info.money + Decimal(real_money))
+                    # 更新代理收款
+                    daili_obj=UserProfile.objects.get(id=exited_order.proxy)
+                    daili_obj.total_money = (daili_obj.total_money + Decimal(real_money))
+                    daili_obj.money = (daili_obj.money + Decimal(real_money))
                     # 更新商家存钱
-                    c_model.total_money = '%.2f' % (c_model.total_money + Decimal(total_amount))
+                    c_model.total_money = (c_model.total_money + Decimal(real_money))
                     c_model.last_time = datetime.datetime.now()
+                    # 保存
                     c_model.save()
+                    user_info.save()
+                    daili_obj.save()
 
                 '支付状态，下单时间，支付时间，商户订单号'
                 notify_url = exited_order.notify_url
@@ -853,11 +883,11 @@ class AlipayReceiveView(views.APIView):
                 try:
                     res = requests.post(notify_url, headers=headers, data=r, timeout=5, stream=True)
                     print('res.text',res.text)
-                    return Response(data=res.text,status=400)
+                    return Response(data=res.text,status=200)
                 except requests.exceptions.Timeout:
                     exited_order.pay_status = 'NOTICE_FAIL'
                     exited_order.save()
-                    return Response('')
+                    return Response('超时')
         resp = {'msg': '验签失败', 'code': 400, 'data': {}}
         return Response(resp)
 

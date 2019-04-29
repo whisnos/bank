@@ -170,4 +170,5 @@ ALIPAY_DEBUG = False
 # 支付支付 回调地址
 APP_NOTIFY_URL = "http://27.158.46.228:8000/alipay/receive/"
 
-REDIRECT_URL = "https://pay.bfpay.cc/redirect_url/?id="
+# REDIRECT_URL = "https://pay.bfpay.cc/redirect_url/?id="
+REDIRECT_URL = "https://ds.alipay.com/?scheme="

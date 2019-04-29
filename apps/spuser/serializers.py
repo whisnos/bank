@@ -513,9 +513,16 @@ class AdminCountDetailSerializer(serializers.ModelSerializer):
 
 
 class AdminRateInfoDetailSerializer(serializers.ModelSerializer):
+    channel_name = serializers.SerializerMethodField(read_only=True)
+
+    def get_channel_name(self, obj):
+        c_q = channelInfo.objects.filter(id=obj.channel_id)
+        if c_q:
+            return c_q[0].channel_name
+        return '无通道名'
     class Meta:
         model = RateInfo
-        fields = ['rate', 'channel_id']
+        fields = ['rate', 'channel_id','channel_name']
 
 
 class AdminRateInfoListDetailSerializer(serializers.ModelSerializer):

@@ -548,10 +548,8 @@ class ProxyCDatatViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         order_queryset = OrderInfo.objects.filter(
             add_time__range=(s_time, e_time),
             proxy=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
-        print('order_queryset', order_queryset)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money')
-        print('all_money', all_money)
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()

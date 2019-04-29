@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
-from channel.models import AlipayInfo
+from channel.models import AlipayInfo, channelInfo
 from proxy.models import RateInfo, DeviceInfo, ReceiveBankInfo, DeviceChannelInfo
 from spuser.serializers import AdminRateInfoDetailSerializer
 from trade.models import OrderInfo, WithDrawInfo, WithDrawBankInfo
@@ -396,6 +396,18 @@ class ProxyReceiveBankCreDetailSerializer(serializers.ModelSerializer):
         fields = ['user', 'username', 'card_number', 'bank_type', 'bank_mark', 'bank_tel', 'card_index', 'device']
 
 
+class ProxyCountRateInfoDetailSerializer(serializers.ModelSerializer):
+    channel_name = serializers.SerializerMethodField(read_only=True)
+    def get_channel_name(self, obj):
+        c_q=channelInfo.objects.filter(id=obj.channel_id)
+        if c_q:
+            return c_q[0].channel_name
+        return '无通道名'
+    class Meta:
+        model = RateInfo
+        fields = ['rate', 'channel_id','channel_name']
+
+
 class ProxyCountDetailSerializer(serializers.ModelSerializer):
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
     rate = serializers.SerializerMethodField()
@@ -412,10 +424,10 @@ class ProxyCountDetailSerializer(serializers.ModelSerializer):
         if rate_queryset:
             for r in rate_queryset:
                 if r.is_map:
-                    s = AdminRateInfoDetailSerializer(r)
+                    s = ProxyCountRateInfoDetailSerializer(r)
                     rate_list.append(s.data)
                 else:
-                    s = AdminRateInfoDetailSerializer(r)
+                    s = ProxyCountRateInfoDetailSerializer(r)
                     rate_list.append(s.data)
             return rate_list
         return []
@@ -802,7 +814,8 @@ class ProxyAlipayInfoUpdateDetailSerializer(serializers.ModelSerializer):
     c_private_key = serializers.CharField(required=False, label='私钥')
     is_active = serializers.BooleanField(required=False, label='是否激活')
     add_time = serializers.DateTimeField(read_only=True, format='%Y-%m-%d %H:%M')
-    total_money = serializers.DecimalField(read_only=True, max_digits=9,decimal_places=2)
+    total_money = serializers.DecimalField(read_only=True, max_digits=9, decimal_places=2)
+
     class Meta:
         model = AlipayInfo
-        fields = ['id','name', 'c_appid', 'alipay_public_key', 'c_private_key', 'is_active','add_time','total_money']
+        fields = ['id', 'name', 'c_appid', 'alipay_public_key', 'c_private_key', 'is_active', 'add_time', 'total_money']

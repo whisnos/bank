@@ -15,8 +15,9 @@ from utils.alipay import AliPay
 from utils.make_code import make_short_code
 from utils.permissions import MakeLogs
 
+
 class MakePay(object):
-    def __init__(self, user, order_money, real_money, channel, remark, order_id, notify_url,plat_type,return_url):
+    def __init__(self, user, order_money, real_money, channel, remark, order_id, notify_url, plat_type, return_url):
         self.user = user
         self.order_money = order_money
         self.channel = channel
@@ -26,6 +27,7 @@ class MakePay(object):
         self.notify_url = notify_url
         self.plat_type = plat_type
         self.return_url = return_url
+
     def choose_pay(self):
         resp = {}
         channel_queryset = channelInfo.objects.filter(channel_name=self.channel)
@@ -44,13 +46,13 @@ class MakePay(object):
             if not thirt_queryset:
                 resp['msg'] = '通道未开通，无法创建订单'
                 return resp
-            self.channel=channel_id
-            ci_obj=channelInfo.objects.filter(id=channel_id)[0]
-            name=ci_obj.channel_name
-            rate=thirt_queryset[0].rate
+            self.channel = channel_id
+            ci_obj = channelInfo.objects.filter(id=channel_id)[0]
+            name = ci_obj.channel_name
+            rate = thirt_queryset[0].rate
         else:
             RR_queryset = RateInfo.objects.filter(user_id=self.user.id, is_active=True, channel_id=channel_id)
-            print('RR_queryset',RR_queryset)
+            print('RR_queryset', RR_queryset)
             if not RR_queryset and len(R_queryset) != 1:
                 resp['msg'] = '找不到对应费率'
                 resp['code'] = 404
@@ -60,9 +62,9 @@ class MakePay(object):
                 self.channel = channel_id
                 ci_obj = channelInfo.objects.filter(id=channel_id)[0]
                 name = ci_obj.channel_name
-                print('self.channel',self.channel)
+                print('self.channel', self.channel)
                 rate = RR_queryset[0].rate
-        if name == 'atb': # atb
+        if name == 'atb':  # atb
             device_queryset = DeviceInfo.objects.filter(user_id=self.user.proxy_id, is_active=True)
             if not device_queryset:
                 resp['code'] = 404
@@ -70,7 +72,8 @@ class MakePay(object):
                 return Response(resp)
             decive_obj = random.choice(device_queryset)
 
-            bank_queryet = ReceiveBankInfo.objects.filter(is_active=True, user_id=self.user.proxy_id,device=decive_obj.id)
+            bank_queryet = ReceiveBankInfo.objects.filter(is_active=True, user_id=self.user.proxy_id,
+                                                          device=decive_obj.id)
             if not bank_queryet:
                 resp['msg'] = '收款商户未激活,或不存在有效收款卡'
                 return resp
@@ -78,15 +81,16 @@ class MakePay(object):
             order_no = "{time_str}{userid}{randstr}".format(time_str=time.strftime("%Y%m%d%H%M%S"),
                                                             userid=self.user.id, randstr=short_code)
             while True:
-                order_queryset=OrderInfo.objects.filter(pay_status=0, real_money=self.real_money,device=decive_obj.id)
+                order_queryset = OrderInfo.objects.filter(pay_status=0, real_money=self.real_money,
+                                                          device=decive_obj.id)
                 if order_queryset:
                     self.real_money = (Decimal(self.real_money) + Decimal(0.01)).quantize(Decimal('0.00'))
                 else:
                     break
-            service_money = (Decimal(self.real_money)*Decimal(rate)).quantize(Decimal('0.00'))
+            service_money = (Decimal(self.real_money) * Decimal(rate)).quantize(Decimal('0.00'))
 
             # 随机ch抽一张银行卡
-            account_num=random.choice(bank_queryet).card_number
+            account_num = random.choice(bank_queryet).card_number
             order = OrderInfo()
             order.user_id = self.user.id
             order.channel_id = channel_id
@@ -99,14 +103,15 @@ class MakePay(object):
             order.remark = self.remark
             order.order_id = self.order_id
             order.account_num = account_num
-            order.notify_url=self.notify_url
-            order.service_money=service_money
+            order.notify_url = self.notify_url
+            order.service_money = service_money
             pay_url = FONT_DOMAIN + '/pay/' + order_no
             order.pay_url = pay_url
             order.save()
             # 引入日志
             log = MakeLogs()
-            content = '用户：' + str(self.user.username) + ' 创建订单号：' + str(order_no) + ' 金额：'+str(self.order_money)+' 元' + '-'+'atb'
+            content = '用户：' + str(self.user.username) + ' 创建订单号：' + str(order_no) + ' 金额：' + str(
+                self.order_money) + ' 元' + '-' + 'atb'
             log.add_logs(1, content, self.user.id)
             resp['msg'] = '创建成功'
             resp['order_no'] = order_no
@@ -120,7 +125,7 @@ class MakePay(object):
             resp['add_time'] = str(order.add_time.strftime(format("%Y-%m-%d %H:%M")))
             resp['channel'] = 'atb'
             return resp
-        elif name=='wang':
+        elif name == 'wang':
             order = OrderInfo()
             order.user_id = self.user.id
             order.channel_id = channel_id
@@ -140,7 +145,7 @@ class MakePay(object):
             resp['channel'] = 'wang'
             return resp
         elif name == 'alipay':
-            c_queryet = AlipayInfo.objects.filter(is_active=True,user_id=self.user.proxy_id).all()
+            c_queryet = AlipayInfo.objects.filter(is_active=True, user_id=self.user.proxy_id).all()
             if not c_queryet:
                 resp['code'] = 404
                 resp['msg'] = '收款商户未激活'
@@ -167,11 +172,11 @@ class MakePay(object):
                 out_trade_no=order_no,
                 total_amount=self.order_money
             )
-            if str(self.plat_type) == '1':
-                resp['re_url'] = REDIRECT_URL + url
-                url = resp['re_url']
-            else:
-                resp['re_url'] = url
+            # if str(self.plat_type) == '1':
+            #     resp['re_url'] = REDIRECT_URL + url
+            #     url = resp['re_url']
+            # else:
+            resp['re_url'] = url
             order = OrderInfo()
             order.user_id = self.user.id
             order.channel_id = channel_id
