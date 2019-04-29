@@ -64,6 +64,7 @@ class MakePay(object):
                 name = ci_obj.channel_name
                 print('self.channel', self.channel)
                 rate = RR_queryset[0].rate
+        service_money = (Decimal(self.real_money) * Decimal(rate)).quantize(Decimal('0.00'))
         if name == 'atb':  # atb
             device_queryset = DeviceInfo.objects.filter(user_id=self.user.proxy_id, is_active=True)
             if not device_queryset:
@@ -87,7 +88,6 @@ class MakePay(object):
                     self.real_money = (Decimal(self.real_money) + Decimal(0.01)).quantize(Decimal('0.00'))
                 else:
                     break
-            service_money = (Decimal(self.real_money) * Decimal(rate)).quantize(Decimal('0.00'))
 
             # 随机ch抽一张银行卡
             account_num = random.choice(bank_queryet).card_number
@@ -177,8 +177,9 @@ class MakePay(object):
             #     resp['re_url'] = REDIRECT_URL + url
             #     url = resp['re_url']
             # else:
-
+            # service_money = (Decimal(self.real_money) * Decimal(rate)).quantize(Decimal('0.00'))
             order = OrderInfo()
+            order.service_money = service_money
             order.user_id = self.user.id
             order.channel_id = channel_id
             order.pay_status = 0
