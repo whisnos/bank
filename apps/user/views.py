@@ -493,7 +493,7 @@ class GetPayView(views.APIView):
         # 加密 uid + auth_code + real_money + notify_url + order_id
         new_temp = str(str(uid) + str(auth_code) + str(real_money) + str(notify_url) + str(order_id))
         my_key = make_md5(new_temp)
-        if key == key:
+        if key == my_key:
             # 关闭超时订单
             now_time = datetime.datetime.now() - datetime.timedelta(minutes=CLOSE_TIME)
             OrderInfo.objects.filter(pay_status=0, add_time__lte=now_time).update(
@@ -575,7 +575,7 @@ class UserChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
 @csrf_exempt
 def test(request):
     print('接收到的信息', request.body)
-    return HttpResponse(status=400)
+    return HttpResponse(status=400,content='success')
 
 
 class UserLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
