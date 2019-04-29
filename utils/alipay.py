@@ -13,7 +13,7 @@ class AliPay(object):
     """
 
     def __init__(self, appid, app_notify_url, app_private_key_path,
-                 alipay_public_key_path, return_url, debug=False, plat_type='0'):
+                 alipay_public_key_path, return_url, debug=False, plat_type='1'):
         self.appid = appid
         self.app_notify_url = app_notify_url
         self.app_private_key_path = app_private_key_path

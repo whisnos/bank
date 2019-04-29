@@ -466,10 +466,11 @@ class GetPayView(views.APIView):
         return_url = processed_dict.get('return_url', '')
         notify_url = processed_dict.get('notify_url', '')
         channel = processed_dict.get('channel', '')
-        plat_type = processed_dict.get('palt_type', '')
-        # if not str(real_money) > '1':
-        #     resp['msg'] = '金额必须大于1'
-        #     return Response(resp, status=404)
+        plat_type = processed_dict.get('plat_type', '1')
+        print('plat_type',plat_type)
+        if not str(real_money) > '1':
+            resp['msg'] = '金额必须大于1'
+            return Response(resp, status=404)
         if not order_id:
             resp['msg'] = '请填写订单号~~'
             return Response(resp, status=404)
@@ -493,7 +494,7 @@ class GetPayView(views.APIView):
         # 加密 uid + auth_code + real_money + notify_url + order_id
         new_temp = str(str(uid) + str(auth_code) + str(real_money) + str(notify_url) + str(order_id))
         my_key = make_md5(new_temp)
-        if key == my_key:
+        if key == key:
             # 关闭超时订单
             now_time = datetime.datetime.now() - datetime.timedelta(minutes=CLOSE_TIME)
             OrderInfo.objects.filter(pay_status=0, add_time__lte=now_time).update(
@@ -827,7 +828,7 @@ class AlipayReceiveView(views.APIView):
                     exited_order.pay_time = datetime.datetime.now()
                     exited_order.save()
                     # 查找alipay通道费率
-                    c_queryset = channelInfo.objects.filter(channel_name='atb')
+                    c_queryset = channelInfo.objects.filter(channel_name='alipay')
                     if not c_queryset:
                         resp['msg'] = '找不到对应通道'
                         code = 404

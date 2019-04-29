@@ -69,7 +69,7 @@ class MakePay(object):
             if not device_queryset:
                 resp['code'] = 404
                 resp['msg'] = '设备未激活,或不存在有效设备'
-                return Response(resp)
+                return (resp)
             decive_obj = random.choice(device_queryset)
 
             bank_queryet = ReceiveBankInfo.objects.filter(is_active=True, user_id=self.user.proxy_id,
@@ -114,16 +114,16 @@ class MakePay(object):
                 self.order_money) + ' 元' + '-' + 'atb'
             log.add_logs(1, content, self.user.id)
             resp['msg'] = '创建成功'
-            resp['order_no'] = order_no
-            resp['pay_url'] = pay_url
-            resp['remark'] = self.remark
-            resp['id'] = order.id
             resp['code'] = 200
             resp['order_money'] = Decimal(self.order_money)
             resp['real_money'] = Decimal(self.real_money)
+            resp['channel'] = 'atb'
+            resp['pay_url'] = pay_url
+            resp['order_no'] = order_no
             resp['order_id'] = self.order_id
             resp['add_time'] = str(order.add_time.strftime(format("%Y-%m-%d %H:%M")))
-            resp['channel'] = 'atb'
+            resp['remark'] = self.remark
+            # resp['id'] = order.id
             return resp
         elif name == 'wang':
             order = OrderInfo()
@@ -140,9 +140,10 @@ class MakePay(object):
             resp['msg'] = '创建成功'
             resp['code'] = 200
             resp['order_money'] = self.order_money
+            resp['order_money'] = self.order_money
+            resp['channel'] = 'wang'
             resp['order_id'] = self.order_id
             resp['add_time'] = str(order.add_time.strftime(format("%Y-%m-%d %H:%M")))
-            resp['channel'] = 'wang'
             return resp
         elif name == 'alipay':
             c_queryet = AlipayInfo.objects.filter(is_active=True, user_id=self.user.proxy_id).all()
@@ -176,7 +177,7 @@ class MakePay(object):
             #     resp['re_url'] = REDIRECT_URL + url
             #     url = resp['re_url']
             # else:
-            resp['re_url'] = url
+
             order = OrderInfo()
             order.user_id = self.user.id
             order.channel_id = channel_id
@@ -193,9 +194,13 @@ class MakePay(object):
             resp['msg'] = '创建成功'
             resp['code'] = 200
             resp['order_money'] = self.order_money
+            resp['real_money'] = self.order_money
+            resp['channel'] = 'alipay'
+            resp['pay_url'] = url
+            resp['order_no'] = order_no
             resp['order_id'] = self.order_id
             resp['add_time'] = str(order.add_time.strftime(format("%Y-%m-%d %H:%M")))
-            resp['channel'] = 'alipay'
+            resp['remark'] = self.remark
             return resp
         else:
             resp['code'] = 404

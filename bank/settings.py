@@ -166,7 +166,7 @@ AUTHENTICATION_BACKENDS = (
 # }
 
 # 支付宝配置
-ALIPAY_DEBUG = False
+ALIPAY_DEBUG = True
 # 支付支付 回调地址
 APP_NOTIFY_URL = "http://27.158.46.228:8000/alipay/receive/"
 
