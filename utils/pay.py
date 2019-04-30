@@ -158,15 +158,20 @@ class MakePay(object):
             app_id = receive_c.c_appid
             private_key_path = receive_c.c_private_key
             ali_public_path = receive_c.alipay_public_key
-            alipay = AliPay(
-                appid=app_id,
-                app_notify_url=APP_NOTIFY_URL,
-                app_private_key_path=private_key_path,  # 个人私钥
-                alipay_public_key_path=ali_public_path,  # 支付宝的公钥，验证支付宝回传消息使用，不是你自己的公钥,
-                debug=ALIPAY_DEBUG,  # 默认False,
-                return_url=self.return_url,
-                plat_type=str(self.plat_type),
-            )
+            try:
+                alipay = AliPay(
+                    appid=app_id,
+                    app_notify_url=APP_NOTIFY_URL,
+                    app_private_key_path=private_key_path,  # 个人私钥
+                    alipay_public_key_path=ali_public_path,  # 支付宝的公钥，验证支付宝回传消息使用，不是你自己的公钥,
+                    debug=ALIPAY_DEBUG,  # 默认False,
+                    return_url=self.return_url,
+                    plat_type=str(self.plat_type),
+                )
+            except Exception:
+                resp['code'] = 400
+                resp['msg'] = '支付宝私钥读取错误'
+                return resp
 
             url = alipay.direct_pay(
                 subject=order_no,
