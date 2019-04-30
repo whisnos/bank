@@ -33,7 +33,9 @@ class AlipayInfo(models.Model):
     last_time = models.DateTimeField(null=True, blank=True, verbose_name='最后收款时间')
     total_money = models.DecimalField(max_digits=9, decimal_places=2, default=0.0, verbose_name='总收款')
     user = models.ForeignKey(UserProfile, verbose_name='所属代理', on_delete=models.CASCADE)
-
+    is_limit = models.BooleanField(default=False,verbose_name='是否限额')
+    variable_money = models.DecimalField(max_digits=9,decimal_places=2,default=0.0,verbose_name='满额')
+    is_turn = models.BooleanField(default=False,verbose_name='轮流否') # 0 未收过 1 已收过
     def __str__(self):
         return self.name
 
