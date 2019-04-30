@@ -151,10 +151,40 @@ class MakePay(object):
                 resp['code'] = 404
                 resp['msg'] = '收款商户未激活'
                 return resp
+            c_queryet_turn = c_queryet.filter(is_turn=False)
+            receive_c = False
+            if not c_queryet_turn:
+                c_queryet.update(is_turn=False)
+                for bank in c_queryet:
+                    if bank.variable_money >= Decimal(self.order_money):
+                        receive_c = bank
+                        break
+                    else:
+                        bank.is_active = False
+                        bank.save()
+                if not receive_c:
+                    resp['code'] = 404
+                    resp['msg'] = '今日所有支付宝额度已用完'
+                    return resp
+            else:
+                for bank in c_queryet_turn:
+                    if bank.variable_money >= Decimal(self.order_money):
+                        receive_c = bank
+                        break
+                    else:
+                        bank.is_active = False
+                        bank.save()
+                if not receive_c:
+                    resp['code'] = 404
+                    resp['msg'] = '今日所有支付宝额度已用完'
+                    return resp
+            receive_c.is_turn = True
+            receive_c.save()
+            print('选出的支付宝是', receive_c.name)
             short_code = make_short_code(8)
             order_no = "{time_str}{userid}{randstr}".format(time_str=time.strftime("%Y%m%d%H%M%S"),
                                                             userid=self.user.id, randstr=short_code)
-            receive_c = random.choice(c_queryet)
+
             app_id = receive_c.c_appid
             private_key_path = receive_c.c_private_key
             ali_public_path = receive_c.alipay_public_key

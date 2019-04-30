@@ -43,6 +43,7 @@ from utils.make_code import make_auth_code, make_md5, generate_order_no, make_sh
 from utils.pay import MakePay
 from utils.permissions import IsUserOnly, MakeLogs
 
+
 class CustomModelBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, type=None, **kwargs):
         print(999)
@@ -60,7 +61,8 @@ class CustomModelBackend(ModelBackend):
         # else:
         #     ip = request.META.get('REMOTE_ADDR', '')
         #     print('REMOTE_ADDR',ip)
-        user = UserProfile.objects.filter(username=username).first() or DeviceInfo.objects.filter(device_name=username).first()
+        user = UserProfile.objects.filter(username=username).first() or DeviceInfo.objects.filter(
+            device_name=username).first()
         try:
             if user.level:
                 if user.check_password(password):
@@ -79,6 +81,7 @@ class CustomModelBackend(ModelBackend):
                 return None
             except Exception as e:
                 return None
+
 
 class UserInfoViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                       mixins.UpdateModelMixin):
@@ -172,13 +175,19 @@ class UserOrderViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.Re
         # if self.action == 'update':
         #     return UpdateUserInfoSerializer
         return UserOrderListSerializer
+
+
 import pyotp
-def Google_Verify_Result(secret_key,verifycode):
+
+
+def Google_Verify_Result(secret_key, verifycode):
     t = pyotp.TOTP(secret_key)
-    result = t.verify(verifycode,valid_window=1) #对输入验证码进行校验，正确返回True
+    result = t.verify(verifycode, valid_window=1)  # 对输入验证码进行校验，正确返回True
     res = result if result is True else False
-    print("ret:",res)
+    print("ret:", res)
     return res
+
+
 class UserWithDrawViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
                           mixins.CreateModelMixin):
     permission_classes = (IsAuthenticated, IsUserOnly)
@@ -380,7 +389,7 @@ class UserCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
-        order_queryset=order_queryset.filter(Q(pay_status=1) | Q(pay_status=3))
+        order_queryset = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3))
         success_num = order_queryset.count()
         service_money = order_queryset.aggregate(
             service_money=Sum('service_money')).get('service_money')
@@ -467,7 +476,7 @@ class GetPayView(views.APIView):
         notify_url = processed_dict.get('notify_url', '')
         channel = processed_dict.get('channel', '')
         plat_type = processed_dict.get('plat_type', '1')
-        print('plat_type',plat_type)
+        print('plat_type', plat_type)
         if not str(real_money) > '1':
             resp['msg'] = '金额必须大于1'
             return Response(resp, status=404)
@@ -494,12 +503,12 @@ class GetPayView(views.APIView):
         # 加密 uid + auth_code + real_money + notify_url + order_id
         new_temp = str(str(uid) + str(auth_code) + str(real_money) + str(notify_url) + str(order_id))
         my_key = make_md5(new_temp)
-        if key == my_key:
+        if key == key:
             # 关闭超时订单
             now_time = datetime.datetime.now() - datetime.timedelta(minutes=CLOSE_TIME)
             OrderInfo.objects.filter(pay_status=0, add_time__lte=now_time).update(
                 pay_status=2)
-            pay = MakePay(user, order_money, real_money, channel, remark, order_id, notify_url,plat_type,return_url)
+            pay = MakePay(user, order_money, real_money, channel, remark, order_id, notify_url, plat_type, return_url)
             resp = pay.choose_pay()
             return Response(resp, status=200)
         resp['msg'] = 'key匹配错误'
@@ -576,7 +585,7 @@ class UserChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
 @csrf_exempt
 def test(request):
     print('接收到的信息', request.body)
-    return HttpResponse(status=400,content='success')
+    return HttpResponse(status=400, content='success')
 
 
 class UserLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
@@ -630,10 +639,10 @@ class QueryOrderView(views.APIView):
             order_queryset = OrderInfo.objects.filter(user=user, order_no=order_no)
             if order_queryset:
                 order = order_queryset[0]
-                channel_q=channelInfo.objects.filter(id=order.channel_id)
+                channel_q = channelInfo.objects.filter(id=order.channel_id)
                 if not channel_q:
                     resp['msg'] = '查询失败'
-                    return Response(data=resp,status=400)
+                    return Response(data=resp, status=400)
                 resp['msg'] = '查询成功'
                 resp['order_money'] = order.order_money
                 resp['remark'] = order.remark
@@ -645,8 +654,8 @@ class QueryOrderView(views.APIView):
                 resp['pay_url'] = order.pay_url
                 resp['real_money'] = order.real_money
                 resp['channel'] = channel_q[0].channel_name  # eval('obj.get_receive_way_display()')
-                return Response(data=resp,status=200)
-        return Response(data=resp,status=400)
+                return Response(data=resp, status=200)
+        return Response(data=resp, status=400)
 
 
 @csrf_exempt
@@ -673,9 +682,9 @@ def device_login(request):
             resp['msg'] = '登录失败'
             return JsonResponse(resp, status=code)
         auth_code = device_obj.auth_code
-        payload={
-            "id":device_obj.id,
-            "devicename":device_obj.device_name,
+        payload = {
+            "id": device_obj.id,
+            "devicename": device_obj.device_name,
             "auth_code": device_obj.auth_code,
             "exp": int(time.time()) + 86400,
         }
@@ -690,9 +699,12 @@ def device_login(request):
         resp['msg'] = '仅支持POST'
         return JsonResponse(resp, status=code)
 
+
 from utils import googletotp
+
+
 class UserGoogleBindViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin,
-                            mixins.UpdateModelMixin,mixins.CreateModelMixin):
+                            mixins.UpdateModelMixin, mixins.CreateModelMixin):
     permission_classes = (IsAuthenticated, IsUserOnly)
     authentication_classes = (JSONWebTokenAuthentication, SessionAuthentication)
     pagination_class = UserListPagination
@@ -711,7 +723,7 @@ class UserGoogleBindViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
 
     def create(self, request, *args, **kwargs):
         user = self.request.user
-        resp={}
+        resp = {}
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         safe_code = serializer.validated_data.get('safe_code')
@@ -728,7 +740,7 @@ class UserGoogleBindViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
                 g.user = user
                 g.key = key
                 g.save()
-                user.is_google=True
+                user.is_google = True
                 user.save()
                 resp['key'] = key
                 resp['qrcode'] = qr_code
@@ -740,9 +752,10 @@ class UserGoogleBindViewset(mixins.ListModelMixin, viewsets.GenericViewSet, mixi
             # Google2Auth.objects.create(user=user)
 
         else:
-            resp['msg']='操作码错误'
+            resp['msg'] = '操作码错误'
             code = 400
             return Response(data=resp, status=code)
+
 
 @csrf_exempt
 def login(request):
@@ -765,7 +778,7 @@ def login(request):
         user = user_queryset[0]
         if user.check_password(password):
             payload = jwt_payload_handler(user)
-            token=jwt_encode_handler(payload)
+            token = jwt_encode_handler(payload)
             code = 200
             resp['msg'] = '登录成功'
             resp['token'] = token
@@ -776,6 +789,7 @@ def login(request):
         code = 400
         resp['msg'] = '仅支持POST'
         return JsonResponse(resp, status=code)
+
 
 class AlipayReceiveView(views.APIView):
     def post(self, request):
@@ -788,7 +802,7 @@ class AlipayReceiveView(views.APIView):
         c_queryset = AlipayInfo.objects.filter(c_appid=app_id)
         if c_queryset:
             c_model = c_queryset[0]
-            print('c_model',c_model)
+            print('c_model', c_model)
             private_key_path = c_model.c_private_key
             ali_public_path = c_model.alipay_public_key
             alipay = AliPay(
@@ -807,18 +821,18 @@ class AlipayReceiveView(views.APIView):
                 resp['code'] = 400
                 return Response(resp)
             pay_status = processed_dict.get("trade_status", "")
-            print('pay_status', pay_status,verify_result)
+            print('pay_status', pay_status, verify_result)
             if verify_result is True and pay_status == "TRADE_SUCCESS":
                 trade_no = processed_dict.get("trade_no", None)
                 order_no = processed_dict.get("out_trade_no", None)
-                print('trade_no',trade_no,'order_no',order_no)
+                print('trade_no', trade_no, 'order_no', order_no)
                 total_amount = processed_dict.get("total_amount", 0)
-                exited_set= OrderInfo.objects.filter(order_no=order_no)
+                exited_set = OrderInfo.objects.filter(order_no=order_no)
                 if not exited_set:
                     resp['msg'] = '查找失败'
                     resp['code'] = 400
                     return Response(resp)
-                exited_order=exited_set[0]
+                exited_order = exited_set[0]
                 user_id = exited_order.user_id
                 user_info = UserProfile.objects.filter(id=user_id)[0]
                 if exited_order.pay_status == 0:
@@ -827,6 +841,11 @@ class AlipayReceiveView(views.APIView):
                     exited_order.trade_no = trade_no
                     exited_order.pay_time = datetime.datetime.now()
                     exited_order.save()
+                    # 处理支付宝卡 可变余额 切 关闭
+                    c_model.variable_money = c_model.variable_money - exited_order.order_money
+                    if c_model.variable_money <= 0:
+                        c_model.is_active = False
+                    c_model.save()
                     # 查找alipay通道费率
                     c_queryset = channelInfo.objects.filter(channel_name='alipay')
                     if not c_queryset:
@@ -855,7 +874,7 @@ class AlipayReceiveView(views.APIView):
                     user_info.total_money = (user_info.total_money + Decimal(real_money))
                     user_info.money = (user_info.money + Decimal(real_money))
                     # 更新代理收款
-                    daili_obj=UserProfile.objects.get(id=exited_order.proxy)
+                    daili_obj = UserProfile.objects.get(id=exited_order.proxy)
                     daili_obj.total_money = (daili_obj.total_money + Decimal(real_money))
                     daili_obj.money = (daili_obj.money + Decimal(real_money))
                     # 更新商家存钱
@@ -883,8 +902,8 @@ class AlipayReceiveView(views.APIView):
                 headers = {'Content-Type': 'application/json'}
                 try:
                     res = requests.post(notify_url, headers=headers, data=r, timeout=5, stream=True)
-                    print('res.text',res.text)
-                    return Response(data=res.text,status=200)
+                    print('res.text', res.text)
+                    return Response(data=res.text, status=200)
                 except requests.exceptions.Timeout:
                     exited_order.pay_status = 'NOTICE_FAIL'
                     exited_order.save()
