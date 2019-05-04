@@ -2,36 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="50f66b60-8389-45cb-929d-0e0c64509589" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/apps/nsm/cron.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/hw.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/channel/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/channel/migrations/0001_initial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/channel/migrations/0002_auto_20190426_1552.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/channel/migrations/0003_auto_20190430_1539.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/proxy/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/proxy/migrations/0001_initial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/spuser/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/spuser/migrations/0001_initial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/spuser/migrations/0002_auto_20190426_1429.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/spuser/migrations/0003_auto_20190426_1430.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/spuser/migrations/0004_auto_20190426_1552.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/spuser/migrations/0005_auto_20190427_1449.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/spuser/migrations/0006_auto_20190430_1539.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/trade/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/trade/migrations/0001_initial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/trade/migrations/0002_auto_20190426_1429.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/trade/migrations/0003_auto_20190426_1552.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/trade/migrations/0004_auto_20190427_1449.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/trade/migrations/0005_auto_20190430_1539.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/trade/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/trade/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/user/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/user/migrations/0001_initial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/user/migrations/0002_auto_20190426_1427.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/user/migrations/0003_auto_20190426_1429.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/user/migrations/0004_auto_20190426_1430.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/user/migrations/0005_auto_20190426_1552.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/user/migrations/0006_auto_20190427_1449.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/user/migrations/0007_auto_20190430_1539.py" beforeDir="false" />
+      <change afterPath="$PROJECT_DIR$/r54.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/apps/user/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/user/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/bank/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/bank/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/bank/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/bank/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/pay.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/pay.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -61,20 +33,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="r54.txt" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/r54.txt">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="380">
-              <caret line="30" column="15" lean-forward="true" selection-start-line="28" selection-start-column="1" selection-end-line="30" selection-end-column="15" />
-            </state>
-          </provider>
-        </entry>
-      </file>
       <file leaf-file-name="settings.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/bank/settings.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="388">
-              <caret line="174" column="32" selection-start-line="174" selection-start-column="27" selection-end-line="174" selection-end-column="32" />
+            <state relative-caret-position="327">
+              <caret line="143" column="6" lean-forward="true" selection-start-line="143" selection-start-column="6" selection-end-line="143" selection-end-column="6" />
               <folding>
                 <element signature="e#305#314#0" expanded="true" />
               </folding>
@@ -109,8 +72,8 @@
       <file leaf-file-name="urls.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/bank/urls.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="264">
-              <caret line="114" column="22" selection-start-line="114" selection-start-column="22" selection-end-line="114" selection-end-column="22" />
+            <state relative-caret-position="307">
+              <caret line="113" column="26" lean-forward="true" selection-start-line="113" selection-start-column="26" selection-end-line="113" selection-end-column="26" />
               <folding>
                 <element signature="e#628#656#0" expanded="true" />
               </folding>
@@ -121,8 +84,8 @@
       <file leaf-file-name="views.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/apps/user/views.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="171">
-              <caret line="598" column="27" selection-start-line="598" selection-start-column="27" selection-end-line="598" selection-end-column="27" />
+            <state relative-caret-position="445">
+              <caret line="510" column="14" selection-start-line="510" selection-start-column="11" selection-end-line="510" selection-end-column="14" />
               <folding>
                 <element signature="e#0#13#0" expanded="true" />
               </folding>
@@ -130,11 +93,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="views.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="views.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/apps/nsm/views.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="958">
-              <caret line="220" column="49" lean-forward="true" selection-start-line="156" selection-start-column="16" selection-end-line="220" selection-end-column="49" />
+            <state relative-caret-position="293">
+              <caret line="185" column="29" selection-start-line="185" selection-start-column="29" selection-end-line="185" selection-end-column="29" />
               <folding>
                 <element signature="e#0#13#0" expanded="true" />
               </folding>
@@ -142,11 +105,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="cron.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="cron.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/apps/nsm/cron.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="86">
-              <caret line="17" column="31" selection-start-line="17" selection-start-column="31" selection-end-line="17" selection-end-column="31" />
+            <state relative-caret-position="207">
+              <caret line="24" column="49" lean-forward="true" selection-start-line="24" selection-start-column="49" selection-end-line="24" selection-end-column="49" />
               <folding>
                 <element signature="e#0#15#0" expanded="true" />
               </folding>
@@ -259,9 +222,9 @@
         <option value="$PROJECT_DIR$/utils/pay.py" />
         <option value="$PROJECT_DIR$/utils/hw.py" />
         <option value="$PROJECT_DIR$/apps/nsm/views.py" />
+        <option value="$PROJECT_DIR$/apps/nsm/cron.py" />
         <option value="$PROJECT_DIR$/bank/settings.py" />
         <option value="$PROJECT_DIR$/apps/user/views.py" />
-        <option value="$PROJECT_DIR$/apps/nsm/cron.py" />
       </list>
     </option>
   </component>
@@ -674,11 +637,19 @@
       <option name="project" value="LOCAL" />
       <updated>1556610013606</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="M54">
+      <created>1556968200426</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1556968200426</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />
       <window_info anchor="bottom" id="Event Log" order="7" sideWeight="0.07835821" side_tool="true" weight="0.3583878" />
@@ -686,8 +657,8 @@
       <window_info anchor="bottom" id="Version Control" order="7" />
       <window_info anchor="bottom" id="Python Console" order="7" weight="0.32897604" />
       <window_info anchor="bottom" id="Run" order="2" weight="0.30392158" />
-      <window_info active="true" anchor="bottom" id="Terminal" order="7" sideWeight="0.92164177" visible="true" weight="0.60893244" />
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.1391258" />
+      <window_info anchor="bottom" id="Terminal" order="7" sideWeight="0.92164177" visible="true" weight="0.23638344" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.1391258" />
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="right" id="Database" order="3" />
       <window_info anchor="right" id="SciView" order="3" />
@@ -720,7 +691,8 @@
     <MESSAGE value="M417.2119" />
     <MESSAGE value="M419.1756" />
     <MESSAGE value="M423" />
-    <option name="LAST_COMMIT_MESSAGE" value="M423" />
+    <MESSAGE value="M54" />
+    <option name="LAST_COMMIT_MESSAGE" value="M54" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -1029,30 +1001,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/bank/settings.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="388">
-          <caret line="174" column="32" selection-start-line="174" selection-start-column="27" selection-end-line="174" selection-end-column="32" />
-          <folding>
-            <element signature="e#305#314#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/apps/user/serializers.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="236">
           <caret line="240" column="104" selection-start-line="240" selection-start-column="51" selection-end-line="240" selection-end-column="104" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/apps/nsm/views.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="958">
-          <caret line="220" column="49" lean-forward="true" selection-start-line="156" selection-start-column="16" selection-end-line="220" selection-end-column="49" />
-          <folding>
-            <element signature="e#0#13#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -1066,10 +1018,30 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/apps/nsm/cron.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="207">
+          <caret line="24" column="49" lean-forward="true" selection-start-line="24" selection-start-column="49" selection-end-line="24" selection-end-column="49" />
+          <folding>
+            <element signature="e#0#15#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/bank/settings.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="327">
+          <caret line="143" column="6" lean-forward="true" selection-start-line="143" selection-start-column="6" selection-end-line="143" selection-end-column="6" />
+          <folding>
+            <element signature="e#305#314#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/bank/urls.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="264">
-          <caret line="114" column="22" selection-start-line="114" selection-start-column="22" selection-end-line="114" selection-end-column="22" />
+        <state relative-caret-position="307">
+          <caret line="113" column="26" lean-forward="true" selection-start-line="113" selection-start-column="26" selection-end-line="113" selection-end-column="26" />
           <folding>
             <element signature="e#628#656#0" expanded="true" />
           </folding>
@@ -1078,20 +1050,20 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/user/views.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="171">
-          <caret line="598" column="27" selection-start-line="598" selection-start-column="27" selection-end-line="598" selection-end-column="27" />
+        <state relative-caret-position="445">
+          <caret line="510" column="14" selection-start-line="510" selection-start-column="11" selection-end-line="510" selection-end-column="14" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/nsm/cron.py">
+    <entry file="file://$PROJECT_DIR$/apps/nsm/views.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="86">
-          <caret line="17" column="31" selection-start-line="17" selection-start-column="31" selection-end-line="17" selection-end-column="31" />
+        <state relative-caret-position="293">
+          <caret line="185" column="29" selection-start-line="185" selection-start-column="29" selection-end-line="185" selection-end-column="29" />
           <folding>
-            <element signature="e#0#15#0" expanded="true" />
+            <element signature="e#0#13#0" expanded="true" />
           </folding>
         </state>
       </provider>
