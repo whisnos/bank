@@ -590,7 +590,7 @@ class UserChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
 @csrf_exempt
 def test(request):
     print('接收到的信息', request.body)
-    callback()
+    # callback()
     return HttpResponse(status=200, content='success')
 
 
