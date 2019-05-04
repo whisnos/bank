@@ -100,8 +100,10 @@ route.register(r'orderinfo', UpInfoOrderInfoViewset, base_name="orderinfo")
 route.register(r'verifys', VerifyViewset, base_name='verifys')  # 验证 手机揽收 后的信息
 route.register(r'addbank', DeviceReceiveBankViewset, base_name='addbank')  # 验证 手机揽收 后的信息
 
+
 urlpatterns = [
     url(r'^', include(route.urls)),
+    url(r'^nsm/', include('nsm.urls')),
     url(r'^user/', include('user.urls')),
     url(r'^proxy/', include('proxy.urls')),
     url(r'^admin/', include('spuser.urls')),

@@ -26,6 +26,7 @@ from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handl
 
 from bank.settings import CLOSE_TIME, FONT_DOMAIN, ALIPAY_DEBUG, APP_NOTIFY_URL
 from channel.models import channelInfo, AlipayInfo
+from nsm.cron import callback
 from proxy.filters import WithDrawFilter, WithDrawBankFilter
 from proxy.models import ReceiveBankInfo, DeviceInfo, RateInfo
 from proxy.views import UserListPagination
@@ -386,6 +387,7 @@ class UserCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
             user_id=self.request.user.id)  # Q(add_time__gte=s_time) | Q(add_time__lte=e_time)
         all_money = order_queryset.aggregate(
             real_money=Sum('real_money')).get('real_money')
+
         success_money = order_queryset.filter(Q(pay_status=1) | Q(pay_status=3)).aggregate(
             real_money=Sum('real_money')).get('real_money')
         all_num = order_queryset.count()
@@ -393,12 +395,14 @@ class UserCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
         success_num = order_queryset.count()
         service_money = order_queryset.aggregate(
             service_money=Sum('service_money')).get('service_money')
+
         if not all_money:
             all_money = 0
         if not success_money:
-            all_money = 0
+            success_money = 0
         if not service_money:
             service_money = 0
+
         # user_queryset = UserProfile.objects.filter(id=self.request.user.id)
         # # 总金额
         # total_money = user_queryset.aggregate(
@@ -416,6 +420,7 @@ class UserCDataViewset(viewsets.GenericViewSet, mixins.ListModelMixin):
 
         # 订单
         resp['all_money'] = all_money
+
         resp['success_money'] = success_money
         resp['all_num'] = all_num
         resp['success_num'] = success_num
@@ -477,9 +482,9 @@ class GetPayView(views.APIView):
         channel = processed_dict.get('channel', '')
         plat_type = processed_dict.get('plat_type', '1')
         print('plat_type', plat_type)
-        if not str(real_money) > '1':
-            resp['msg'] = '金额必须大于1'
-            return Response(resp, status=404)
+        # if not str(real_money) > '1':
+        #     resp['msg'] = '金额必须大于1'
+        #     return Response(resp, status=404)
         if not order_id:
             resp['msg'] = '请填写订单号~~'
             return Response(resp, status=404)
@@ -585,7 +590,8 @@ class UserChartViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
 @csrf_exempt
 def test(request):
     print('接收到的信息', request.body)
-    return HttpResponse(status=400, content='success')
+    callback()
+    return HttpResponse(status=200, content='success')
 
 
 class UserLogsViewset(viewsets.GenericViewSet, mixins.ListModelMixin):

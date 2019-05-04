@@ -6,7 +6,7 @@ from django.db import models
 from channel.models import channelInfo
 from proxy.models import DeviceInfo
 from user.models import UserProfile
-
+from nsm.models import NsshInfo
 
 class OrderInfo(models.Model):
     PAY_STATUS = {
@@ -35,6 +35,8 @@ class OrderInfo(models.Model):
     notify_url = models.CharField(max_length=100, null=True, blank=True, verbose_name='商户回调url')
     service_money = models.DecimalField(verbose_name='费用', max_digits=7, decimal_places=2, null=True, blank=True)
     trade_no = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name='支付宝交易号')
+    out_trade_no = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name='农商交易号')
+    nsm = models.ForeignKey(NsshInfo, on_delete=models.CASCADE, null=True, blank=True, verbose_name='农商商户')
     def __str__(self):
         return str(self.order_no)
 

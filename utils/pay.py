@@ -8,6 +8,7 @@ from rest_framework.response import Response
 
 from bank.settings import FONT_DOMAIN, APP_NOTIFY_URL, ALIPAY_DEBUG, REDIRECT_URL
 from channel.models import channelInfo, AlipayInfo
+from nsm.models import NsshInfo
 from proxy.models import ReceiveBankInfo, RateInfo, DeviceInfo
 from trade.models import OrderInfo
 from user.models import UserProfile
@@ -238,7 +239,42 @@ class MakePay(object):
             resp['add_time'] = str(order.add_time.strftime(format("%Y-%m-%d %H:%M")))
             resp['remark'] = self.remark
             return resp
+        elif name == 'nsm':
+            c_queryet = NsshInfo.objects.filter(user_id=self.user.proxy_id, is_active=True)
+            if not c_queryet:
+                resp['code'] = 400
+                resp['msg'] = '收款商户未激活'
+                return resp
+            short_code = make_short_code(8)
+            order_no = "{time_str}{userid}{randstr}".format(time_str=time.strftime("%Y%m%d%H%M%S"),
+                                                            userid=self.user.id, randstr=short_code)
+            order = OrderInfo()
+            order.user_id = self.user.id
+            order.channel_id = channel_id
+            order.pay_status = 0
+            order.real_money = self.real_money
+            order.order_money = self.order_money
+            order.remark = self.remark
+            order.order_id = self.order_id
+            order.notify_url = self.notify_url
+            order.proxy = self.user.proxy_id
+            order.order_no = order_no
+            order.service_money = service_money
+            order.pay_url = FONT_DOMAIN + '/nsmpay/' + order_no
+            order.save()
+            resp['msg'] = '创建成功'
+            resp['code'] = 200
+            resp['order_money'] = self.order_money
+            resp['real_money'] = self.real_money
+            resp['channel'] = 'nsm'
+            resp['order_id'] = self.order_id
+            resp['add_time'] = str(order.add_time.strftime(format("%Y-%m-%d %H:%M")))
+            resp['order_no'] = order_no
+            resp['pay_url'] = FONT_DOMAIN + '/nsmpay/' + order_no
+            return resp
         else:
             resp['code'] = 404
             resp['msg'] = '通道不存在'
             return resp
+
+

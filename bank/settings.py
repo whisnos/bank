@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-import sys,datetime
+import sys, datetime
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
@@ -29,9 +29,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
-
-# Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -39,7 +36,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_crontab',
     'user.apps.UserConfig',
+    'nsm.apps.NsmConfig',
     'trade.apps.TradeConfig',
     'channel.apps.ChannelConfig',
     'card.apps.CardConfig',
@@ -49,6 +48,8 @@ INSTALLED_APPS = [
     'django_filters',
 
 ]
+# Application definition
+
 AUTH_USER_MODEL = 'user.UserProfile'
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -80,7 +81,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'bank.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
@@ -94,7 +94,6 @@ DATABASES = {
         'PORT': '3306',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
@@ -114,7 +113,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
 
@@ -128,7 +126,7 @@ USE_L10N = True
 
 USE_TZ = False
 
-APPEND_SLASH=False
+APPEND_SLASH = False
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
@@ -144,14 +142,13 @@ JWT_AUTH = {
 # 订单超时 关闭 时间
 CLOSE_TIME = 10
 # 前端域名
-FONT_DOMAIN = 'https://www.bfpay.cc'
+FONT_DOMAIN = 'http://192.168.0.118:8080'
 
 # 默认费率 全局
-DEFAULT_RATE=0.015
+DEFAULT_RATE = 0.015
 
 # 验证动态key
 SECRET_VERIFY = '@#$@!bfpay#(&'
-
 
 # 自定义ModelBackend Q登录
 AUTHENTICATION_BACKENDS = (
@@ -172,3 +169,8 @@ APP_NOTIFY_URL = "http://27.158.57.202:8000/alipay/receive/"
 
 # REDIRECT_URL = "https://pay.bfpay.cc/redirect_url/?id="
 REDIRECT_URL = "https://ds.alipay.com/?scheme="
+
+# 定时器
+CRONJOBS = [
+('*/3 * * * *', 'nsm.views.hello','>>/www/wwwroot/pay.bfpay.com.beta/cron.txt'),
+]
